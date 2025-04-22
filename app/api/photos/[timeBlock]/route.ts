@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase"
 export async function GET(request: Request, { params }: { params: { timeBlock: string } }) {
   try {
     const timeBlock = params.timeBlock
+    console.log("API: Fetching photos for time block:", timeBlock)
 
     // Get photos for the specified time block from the database
     const { data, error } = await supabase
@@ -16,6 +17,8 @@ export async function GET(request: Request, { params }: { params: { timeBlock: s
       console.error("Error fetching photos:", error)
       return NextResponse.json({ photos: [] })
     }
+
+    console.log(`API: Found ${data.length} photos for time block:`, timeBlock)
 
     // Format the photos to match the expected structure
     const photos = data.map((photo) => ({

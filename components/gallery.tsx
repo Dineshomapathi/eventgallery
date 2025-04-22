@@ -22,21 +22,44 @@ const Gallery = ({ blockId }: GalleryProps) => {
   const [photos, setPhotos] = useState<Photo[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Extract the time block part (after the date)
-  const timeBlockPart =
-    blockId.includes("-") && !blockId.endsWith("-dinner") ? blockId.split("-").slice(-1)[0] : blockId
+  // Extract the time block part for API query
+  const getTimeBlockForQuery = () => {
+    // Special case for dinner
+    if (blockId === "2025-04-24-dinner" || blockId.endsWith("-dinner")) {
+      return "2025-04-24-dinner"
+    }
+
+    // If it's a regular time block with date prefix
+    if (blockId.includes("-") && blockId.split("-").length >= 4) {
+      // Format: YYYY-MM-DD-timeBlock
+      return blockId
+    }
+
+    // If it's just a date with a time block
+    if (blockId.includes("-") && blockId.split("-").length === 3) {
+      // It's a date without a time block specified
+      return blockId
+    }
+
+    // If it's just a time block without a date
+    return blockId
+  }
 
   useEffect(() => {
     const fetchPhotos = async () => {
       try {
         setLoading(true)
-        const response = await fetch(`/api/photos/${timeBlockPart}`)
+        const timeBlockForQuery = getTimeBlockForQuery()
+        console.log("Fetching photos for time block:", timeBlockForQuery)
+
+        const response = await fetch(`/api/photos/${timeBlockForQuery}`)
 
         if (!response.ok) {
           throw new Error(`Failed to fetch photos: ${response.status}`)
         }
 
         const data = await response.json()
+        console.log("Received photos data:", data)
 
         if (data.photos) {
           setPhotos(data.photos)
@@ -49,17 +72,33 @@ const Gallery = ({ blockId }: GalleryProps) => {
     }
 
     fetchPhotos()
-  }, [timeBlockPart])
+  }, [blockId])
 
   // Get the event name based on the blockId
   const getEventName = () => {
-    if (blockId.endsWith("-dinner")) {
+    if (blockId === "2025-04-24-dinner" || blockId.endsWith("-dinner")) {
       return "Networking Dinner"
     }
 
-    if (!blockId.includes("-")) return timeBlockPart
+    if (!blockId.includes("-")) return blockId
 
     const parts = blockId.split("-")
+    if (parts.length < 4) {
+      // It's just a date
+      const date = blockId
+      switch (date) {
+        case "2025-04-23":
+          return "City Tour"
+        case "2025-04-24":
+          return "Conference Day 1"
+        case "2025-04-25":
+          return "Conference Day 2"
+        default:
+          return blockId
+      }
+    }
+
+    // It's a date with a time block
     const date = `${parts[0]}-${parts[1]}-${parts[2]}`
     const timeBlock = parts[3]
 
@@ -74,6 +113,8 @@ const Gallery = ({ blockId }: GalleryProps) => {
       case "2025-04-25":
         eventName = "Conference Day 2"
         break
+      default:
+        eventName = date
     }
 
     return `${eventName}: ${timeBlock}`

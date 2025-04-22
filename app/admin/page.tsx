@@ -166,7 +166,9 @@ export default function AdminPage() {
 
         const data = await response.json()
 
-        if (!data.success) {
+        if (data.success) {
+          console.log(`Successfully uploaded ${file.name} to ${uploadTimeBlock}`)
+        } else {
           throw new Error(data.error || `Failed to upload ${file.name}`)
         }
       }

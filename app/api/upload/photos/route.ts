@@ -53,7 +53,7 @@ export async function POST(request: Request) {
       }
 
       // Store the photo reference in the database
-      console.log("Storing photo reference in database...")
+      console.log("Storing photo reference in database with time_block:", timeBlock)
       const { data, error } = await supabase.from("photos").insert(photo).select()
 
       if (error) {

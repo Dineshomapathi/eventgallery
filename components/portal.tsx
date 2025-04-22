@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 
@@ -17,5 +16,8 @@ export default function Portal({ children }: PortalProps) {
     return () => setMounted(false)
   }, [])
 
-  return mounted ? createPortal(children, document.body) : null
+  // Only render in the browser, not during SSR
+  if (!mounted) return null
+
+  return createPortal(children, document.body)
 }

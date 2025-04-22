@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { X, Download, Maximize, Minimize } from "lucide-react"
+import { useEffect } from "react"
+import { X, Download } from "lucide-react"
 import Portal from "./portal"
 
 interface Photo {
@@ -19,23 +19,17 @@ interface ImageModalProps {
 }
 
 const ImageModal = ({ photo, onClose }: ImageModalProps) => {
-  const [isFullscreen, setIsFullscreen] = useState(false)
-
   // Close modal on escape key
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (isFullscreen) {
-          exitFullscreen()
-        } else {
-          onClose()
-        }
+        onClose()
       }
     }
 
     window.addEventListener("keydown", handleEsc)
     return () => window.removeEventListener("keydown", handleEsc)
-  }, [onClose, isFullscreen])
+  }, [onClose])
 
   // Prevent scrolling when modal is open
   useEffect(() => {
@@ -45,49 +39,22 @@ const ImageModal = ({ photo, onClose }: ImageModalProps) => {
     }
   }, [])
 
-  // Handle download (HD version)
+  // Handle direct download of the image
   const handleDownload = () => {
+    // Create a temporary anchor element
     const link = document.createElement("a")
     link.href = photo.url
-    link.download = photo.id || "roptc-image.jpg"
+
+    // Set download attribute with a filename
+    const filename = photo.id ? `roptc-image-${photo.id}.jpg` : "roptc-image.jpg"
+    link.setAttribute("download", filename)
+
+    // Append to the body, click, and remove
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
   }
 
-  // Toggle fullscreen
-  const toggleFullscreen = () => {
-    if (!isFullscreen) {
-      const element = document.documentElement
-      if (element.requestFullscreen) {
-        element.requestFullscreen()
-      } else if ((element as any).mozRequestFullScreen) {
-        ;(element as any).mozRequestFullScreen()
-      } else if ((element as any).webkitRequestFullscreen) {
-        ;(element as any).webkitRequestFullscreen()
-      } else if ((element as any).msRequestFullscreen) {
-        ;(element as any).msRequestFullscreen()
-      }
-      setIsFullscreen(true)
-    } else {
-      exitFullscreen()
-    }
-  }
-
-  const exitFullscreen = () => {
-    if (document.exitFullscreen) {
-      document.exitFullscreen()
-    } else if ((document as any).mozCancelFullScreen) {
-      ;(document as any).mozCancelFullScreen()
-    } else if ((document as any).webkitExitFullscreen) {
-      ;(document as any).webkitExitFullscreen()
-    } else if ((document as any).msExitFullscreen) {
-      ;(document as any).msExitFullscreen()
-    }
-    setIsFullscreen(false)
-  }
-
-  // Added a space here to trigger a new deployment
   return (
     <Portal>
       <div
@@ -96,7 +63,7 @@ const ImageModal = ({ photo, onClose }: ImageModalProps) => {
       >
         {/* Controls bar */}
         <div className="absolute top-0 left-0 right-0 flex justify-between items-center p-4 bg-black/50 z-10">
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center">
             <button
               onClick={handleDownload}
               className="flex items-center px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 transition-colors"
@@ -104,24 +71,6 @@ const ImageModal = ({ photo, onClose }: ImageModalProps) => {
             >
               <Download size={20} className="mr-2" />
               <span>Download</span>
-            </button>
-
-            <button
-              onClick={toggleFullscreen}
-              className="flex items-center px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 transition-colors"
-              aria-label={isFullscreen ? "Exit fullscreen" : "View fullscreen"}
-            >
-              {isFullscreen ? (
-                <>
-                  <Minimize size={20} className="mr-2" />
-                  <span>Exit Fullscreen</span>
-                </>
-              ) : (
-                <>
-                  <Maximize size={20} className="mr-2" />
-                  <span>Fullscreen</span>
-                </>
-              )}
             </button>
           </div>
 
@@ -139,7 +88,7 @@ const ImageModal = ({ photo, onClose }: ImageModalProps) => {
           <img
             src={photo.url || "/placeholder.svg"}
             alt="Enlarged event image"
-            className={`max-w-full max-h-full object-contain ${isFullscreen ? "w-screen h-screen" : ""}`}
+            className="max-w-full max-h-full object-contain"
             onClick={(e) => e.stopPropagation()} // Prevent clicks on image from closing modal
           />
         </div>

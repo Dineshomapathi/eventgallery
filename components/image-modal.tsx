@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { X, Download } from "lucide-react"
 import Portal from "./portal"
+import { downloadFile } from "@/lib/download-utils"
 
 interface Photo {
   id: string
@@ -19,6 +20,8 @@ interface ImageModalProps {
 }
 
 const ImageModal = ({ photo, onClose }: ImageModalProps) => {
+  const [downloading, setDownloading] = useState(false)
+
   // Close modal on escape key
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -39,20 +42,27 @@ const ImageModal = ({ photo, onClose }: ImageModalProps) => {
     }
   }, [])
 
-  // Handle direct download of the image
-  const handleDownload = () => {
-    // Create a temporary anchor element
-    const link = document.createElement("a")
-    link.href = photo.url
+  // Handle direct download of the image for both mobile and desktop
+  const handleDownload = async () => {
+    try {
+      setDownloading(true)
 
-    // Set download attribute with a filename
-    const filename = photo.id ? `roptc-image-${photo.id}.jpg` : "roptc-image.jpg"
-    link.setAttribute("download", filename)
+      // Generate a filename based on the photo ID or a default
+      const filename = photo.id ? `roptc-image-${photo.id}.jpg` : "roptc-image.jpg"
 
-    // Append to the body, click, and remove
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+      // Use our utility function to download the file
+      const success = await downloadFile(photo.url, filename)
+
+      if (!success) {
+        console.warn("Couldn't download using preferred method, falling back to direct link")
+        // Fallback to direct link as last resort
+        window.open(photo.url, "_blank")
+      }
+    } catch (error) {
+      console.error("Error downloading image:", error)
+    } finally {
+      setDownloading(false)
+    }
   }
 
   return (
@@ -66,11 +76,12 @@ const ImageModal = ({ photo, onClose }: ImageModalProps) => {
           <div className="flex items-center">
             <button
               onClick={handleDownload}
-              className="flex items-center px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 transition-colors"
+              disabled={downloading}
+              className="flex items-center px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 transition-colors disabled:opacity-50"
               aria-label="Download image"
             >
               <Download size={20} className="mr-2" />
-              <span>Download</span>
+              <span>{downloading ? "Downloading..." : "Download"}</span>
             </button>
           </div>
 

@@ -87,6 +87,7 @@ const ImageModal = ({ photo, onClose }: ImageModalProps) => {
     setIsFullscreen(false)
   }
 
+  // Added a space here to trigger a new deployment
   return (
     <Portal>
       <div

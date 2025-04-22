@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { X, Download, Maximize, Minimize } from "lucide-react"
+import Portal from "./portal"
 
 interface Photo {
   id: string
@@ -87,57 +88,62 @@ const ImageModal = ({ photo, onClose }: ImageModalProps) => {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black flex items-center justify-center">
-      {/* Controls bar */}
-      <div className="absolute top-0 left-0 right-0 flex justify-between items-center p-4 bg-black/50 z-10">
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={handleDownload}
-            className="flex items-center px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 transition-colors"
-            aria-label="Download image"
-          >
-            <Download size={20} className="mr-2" />
-            <span>Download</span>
-          </button>
+    <Portal>
+      <div
+        className="fixed inset-0 z-[9999] bg-black flex items-center justify-center"
+        style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0 }}
+      >
+        {/* Controls bar */}
+        <div className="absolute top-0 left-0 right-0 flex justify-between items-center p-4 bg-black/50 z-10">
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={handleDownload}
+              className="flex items-center px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 transition-colors"
+              aria-label="Download image"
+            >
+              <Download size={20} className="mr-2" />
+              <span>Download</span>
+            </button>
+
+            <button
+              onClick={toggleFullscreen}
+              className="flex items-center px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 transition-colors"
+              aria-label={isFullscreen ? "Exit fullscreen" : "View fullscreen"}
+            >
+              {isFullscreen ? (
+                <>
+                  <Minimize size={20} className="mr-2" />
+                  <span>Exit Fullscreen</span>
+                </>
+              ) : (
+                <>
+                  <Maximize size={20} className="mr-2" />
+                  <span>Fullscreen</span>
+                </>
+              )}
+            </button>
+          </div>
 
           <button
-            onClick={toggleFullscreen}
-            className="flex items-center px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 transition-colors"
-            aria-label={isFullscreen ? "Exit fullscreen" : "View fullscreen"}
+            onClick={onClose}
+            className="p-2 text-white hover:text-teal-300 bg-black/50 rounded-full"
+            aria-label="Close modal"
           >
-            {isFullscreen ? (
-              <>
-                <Minimize size={20} className="mr-2" />
-                <span>Exit Fullscreen</span>
-              </>
-            ) : (
-              <>
-                <Maximize size={20} className="mr-2" />
-                <span>Fullscreen</span>
-              </>
-            )}
+            <X size={24} />
           </button>
         </div>
 
-        <button
-          onClick={onClose}
-          className="p-2 text-white hover:text-teal-300 bg-black/50 rounded-full"
-          aria-label="Close modal"
-        >
-          <X size={24} />
-        </button>
+        {/* Image container - takes up the full viewport */}
+        <div className="w-full h-full flex items-center justify-center p-4 pt-16">
+          <img
+            src={photo.url || "/placeholder.svg"}
+            alt="Enlarged event image"
+            className={`max-w-full max-h-full object-contain ${isFullscreen ? "w-screen h-screen" : ""}`}
+            onClick={(e) => e.stopPropagation()} // Prevent clicks on image from closing modal
+          />
+        </div>
       </div>
-
-      {/* Image container - takes up the full viewport */}
-      <div className="w-full h-full flex items-center justify-center p-4 pt-16">
-        <img
-          src={photo.url || "/placeholder.svg"}
-          alt="Enlarged event image"
-          className={`max-w-full max-h-full object-contain ${isFullscreen ? "w-screen h-screen" : ""}`}
-          onClick={(e) => e.stopPropagation()} // Prevent clicks on image from closing modal
-        />
-      </div>
-    </div>
+    </Portal>
   )
 }
 

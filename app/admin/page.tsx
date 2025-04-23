@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import PhotoUploader from "@/components/photo-uploader"
+import AdminGalleryView from "./gallery-view"
 import {
   Dialog,
   DialogContent,
@@ -254,8 +255,9 @@ export default function AdminPage() {
       </div>
 
       <Tabs defaultValue="photos">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="photos">Photo Upload</TabsTrigger>
+          <TabsTrigger value="gallery">Manage Gallery</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
           <TabsTrigger value="demo-controls">Demo Controls</TabsTrigger>
           <TabsTrigger value="background">Background Upload</TabsTrigger>
@@ -338,6 +340,10 @@ export default function AdminPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="gallery">
+          <AdminGalleryView />
         </TabsContent>
 
         <TabsContent value="settings">

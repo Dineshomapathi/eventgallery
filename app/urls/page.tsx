@@ -35,6 +35,11 @@ export default function UrlsPage() {
       description: "API endpoint for uploading photos to time blocks",
     },
     {
+      name: "Photo Delete API",
+      url: "/api/photos/delete",
+      description: "API endpoint for deleting individual photos",
+    },
+    {
       name: "Background Fetch API",
       url: "/api/background",
       description: "API endpoint for fetching the current background",

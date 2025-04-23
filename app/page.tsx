@@ -226,7 +226,7 @@ export default function EventGallery() {
 
                 {showDinner && (
                   <div className="bg-white/90 backdrop-blur-sm p-6 rounded-lg shadow-lg">
-                    <Gallery blockId={selectedEvent} />
+                    <Gallery blockId={selectedEvent} isAdmin={false} />
                   </div>
                 )}
               </>
@@ -235,7 +235,7 @@ export default function EventGallery() {
             {/* Gallery view */}
             {selectedEvent && selectedBlock && (
               <div className="bg-white/90 backdrop-blur-sm p-6 rounded-lg shadow-lg">
-                <Gallery blockId={`${selectedEvent}-${selectedBlock}`} />
+                <Gallery blockId={`${selectedEvent}-${selectedBlock}`} isAdmin={false} />
               </div>
             )}
           </div>

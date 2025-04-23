@@ -1,9 +1,20 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { X, Download } from "lucide-react"
+import { X, Download, Trash2 } from "lucide-react"
 import Portal from "./portal"
 import { downloadFile } from "@/lib/download-utils"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { useToast } from "@/hooks/use-toast"
 
 interface Photo {
   id: string
@@ -17,10 +28,16 @@ interface Photo {
 interface ImageModalProps {
   photo: Photo
   onClose: () => void
+  onDelete?: (id: string) => void
+  showDeleteOption?: boolean
 }
 
-const ImageModal = ({ photo, onClose }: ImageModalProps) => {
+const ImageModal = ({ photo, onClose, onDelete, showDeleteOption = false }: ImageModalProps) => {
   const [downloading, setDownloading] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [imageLoaded, setImageLoaded] = useState(false)
+  const { toast } = useToast()
 
   // Close modal on escape key
   useEffect(() => {
@@ -60,8 +77,64 @@ const ImageModal = ({ photo, onClose }: ImageModalProps) => {
       }
     } catch (error) {
       console.error("Error downloading image:", error)
+      toast({
+        title: "Download failed",
+        description: "There was a problem downloading the image.",
+        variant: "destructive",
+      })
     } finally {
       setDownloading(false)
+    }
+  }
+
+  // Handle delete confirmation
+  const confirmDelete = () => {
+    setShowDeleteConfirm(true)
+  }
+
+  // Handle actual deletion
+  const handleDelete = async () => {
+    try {
+      setDeleting(true)
+
+      const response = await fetch("/api/photos/delete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: photo.id,
+          url: photo.url,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to delete photo")
+      }
+
+      toast({
+        title: "Photo deleted",
+        description: "The photo has been successfully deleted.",
+      })
+
+      // Call the onDelete callback if provided
+      if (onDelete) {
+        onDelete(photo.id)
+      }
+
+      // Close the modal
+      onClose()
+    } catch (error) {
+      console.error("Error deleting photo:", error)
+      toast({
+        title: "Delete failed",
+        description: error instanceof Error ? error.message : "Failed to delete the photo",
+        variant: "destructive",
+      })
+    } finally {
+      setDeleting(false)
+      setShowDeleteConfirm(false)
     }
   }
 
@@ -73,16 +146,28 @@ const ImageModal = ({ photo, onClose }: ImageModalProps) => {
       >
         {/* Controls bar */}
         <div className="absolute top-0 left-0 right-0 flex justify-between items-center p-4 bg-black/50 z-10">
-          <div className="flex items-center">
+          <div className="flex items-center space-x-2">
             <button
               onClick={handleDownload}
-              disabled={downloading}
+              disabled={downloading || !imageLoaded}
               className="flex items-center px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 transition-colors disabled:opacity-50"
               aria-label="Download image"
             >
               <Download size={20} className="mr-2" />
               <span>{downloading ? "Downloading..." : "Download"}</span>
             </button>
+
+            {showDeleteOption && (
+              <button
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="flex items-center px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors disabled:opacity-50"
+                aria-label="Delete image"
+              >
+                <Trash2 size={20} className="mr-2" />
+                <span>{deleting ? "Deleting..." : "Delete"}</span>
+              </button>
+            )}
           </div>
 
           <button
@@ -96,13 +181,39 @@ const ImageModal = ({ photo, onClose }: ImageModalProps) => {
 
         {/* Image container - takes up the full viewport */}
         <div className="w-full h-full flex items-center justify-center p-4 pt-16">
+          {/* Loading indicator */}
+          {!imageLoaded && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-12 h-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          )}
+
           <img
             src={photo.url || "/placeholder.svg"}
             alt="Enlarged event image"
-            className="max-w-full max-h-full object-contain"
+            className={`max-w-full max-h-full object-contain transition-opacity duration-300 ${imageLoaded ? "opacity-100" : "opacity-0"}`}
             onClick={(e) => e.stopPropagation()} // Prevent clicks on image from closing modal
+            onLoad={() => setImageLoaded(true)}
           />
         </div>
+
+        {/* Delete confirmation dialog */}
+        <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure you want to delete this photo?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. The photo will be permanently removed from the gallery.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+                {deleting ? "Deleting..." : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </Portal>
   )

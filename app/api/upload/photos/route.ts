@@ -3,6 +3,15 @@ import { revalidatePath } from "next/cache"
 import { put } from "@vercel/blob"
 import { supabase } from "@/lib/supabase"
 
+// Increase the body parser size limit
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: "50mb",
+    },
+  },
+}
+
 export async function POST(request: Request) {
   try {
     const formData = await request.formData()
@@ -10,7 +19,11 @@ export async function POST(request: Request) {
     const timeBlock = formData.get("timeBlock") as string
 
     console.log("Received upload request for time block:", timeBlock)
-    console.log("File details:", { name: file?.name, type: file?.type, size: file?.size })
+    console.log("File details:", {
+      name: file?.name,
+      type: file?.type,
+      size: `${(file?.size / 1024 / 1024).toFixed(2)}MB`,
+    })
 
     if (!file) {
       return NextResponse.json({ error: "No file provided", success: false }, { status: 400 })

@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
+import PhotoUploader from "@/components/photo-uploader"
 import {
   Dialog,
   DialogContent,
@@ -21,6 +22,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { AlertTriangle } from "lucide-react"
+import { compressImage } from "@/lib/image-compression"
 
 export default function AdminPage() {
   const [uploading, setUploading] = useState(false)
@@ -29,6 +31,7 @@ export default function AdminPage() {
   const [currentTime, setCurrentTime] = useState<Date>(new Date())
   const [confirmPurge, setConfirmPurge] = useState(false)
   const [selectedDate, setSelectedDate] = useState<string>("2025-04-23")
+  const [selectedTimeBlock, setSelectedTimeBlock] = useState<string>("8-10")
   const [restrictionsDisabled, setRestrictionsDisabled] = useState<boolean>(false)
   const { toast } = useToast()
 
@@ -96,12 +99,15 @@ export default function AdminPage() {
     if (!e.target.files || e.target.files.length === 0) return
 
     const file = e.target.files[0]
-    const formData = new FormData()
-    formData.append("file", file)
-
     setUploading(true)
 
     try {
+      // Compress the image before upload
+      const compressedFile = await compressImage(file, 5)
+
+      const formData = new FormData()
+      formData.append("file", compressedFile)
+
       const response = await fetch("/api/upload/background", {
         method: "POST",
         body: formData,
@@ -125,60 +131,6 @@ export default function AdminPage() {
       }
     } catch (error) {
       console.error("Error uploading background:", error)
-      toast({
-        title: "Upload failed",
-        description: error instanceof Error ? error.message : "An unknown error occurred",
-        variant: "destructive",
-      })
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, timeBlock: string) => {
-    if (!e.target.files || e.target.files.length === 0) return
-
-    const files = Array.from(e.target.files)
-    setUploading(true)
-
-    try {
-      for (const file of files) {
-        const formData = new FormData()
-        formData.append("file", file)
-
-        // Handle special case for dinner
-        const uploadTimeBlock = timeBlock === "dinner" ? "2025-04-24-dinner" : `${selectedDate}-${timeBlock}`
-
-        formData.append("timeBlock", uploadTimeBlock)
-
-        console.log("Uploading file:", file.name, "to time block:", uploadTimeBlock)
-
-        const response = await fetch("/api/upload/photos", {
-          method: "POST",
-          body: formData,
-        })
-
-        if (!response.ok) {
-          const errorText = await response.text()
-          console.error("Server error response:", errorText)
-          throw new Error(`Server responded with ${response.status}: ${errorText}`)
-        }
-
-        const data = await response.json()
-
-        if (data.success) {
-          console.log(`Successfully uploaded ${file.name} to ${uploadTimeBlock}`)
-        } else {
-          throw new Error(data.error || `Failed to upload ${file.name}`)
-        }
-      }
-
-      toast({
-        title: "Photos uploaded",
-        description: `${files.length} photo(s) have been uploaded successfully.`,
-      })
-    } catch (error) {
-      console.error("Error uploading photos:", error)
       toast({
         title: "Upload failed",
         description: error instanceof Error ? error.message : "An unknown error occurred",
@@ -349,15 +301,7 @@ export default function AdminPage() {
                         <p className="text-sm text-amber-700 mt-1 mb-3">
                           Upload photos for the networking dinner event
                         </p>
-                        <Input
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          onChange={(e) => handlePhotoUpload(e, "dinner")}
-                          disabled={uploading}
-                          className="bg-white"
-                        />
-                        {uploading && <p className="text-sm text-amber-600 mt-2">Uploading dinner photos...</p>}
+                        <PhotoUploader timeBlock="2025-04-24-dinner" />
                       </div>
                     </div>
                   )}
@@ -371,7 +315,7 @@ export default function AdminPage() {
                       <Label htmlFor="timeBlock" className="mb-2 block">
                         Time Block
                       </Label>
-                      <Select defaultValue={timeBlocks[0].id}>
+                      <Select value={selectedTimeBlock} onValueChange={setSelectedTimeBlock}>
                         <SelectTrigger id="timeBlock">
                           <SelectValue placeholder="Select time block" />
                         </SelectTrigger>
@@ -386,22 +330,8 @@ export default function AdminPage() {
                     </div>
 
                     <div>
-                      <Label htmlFor="photos" className="mb-2 block">
-                        Upload Photos (Multiple)
-                      </Label>
-                      <Input
-                        id="photos"
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={(e) => {
-                          const select = document.querySelector("#timeBlock") as HTMLSelectElement
-                          const timeBlock = select?.value || timeBlocks[0].id
-                          handlePhotoUpload(e, timeBlock)
-                        }}
-                        disabled={uploading}
-                      />
-                      {uploading && <p className="text-sm text-muted-foreground mt-2">Uploading...</p>}
+                      <Label className="mb-2 block">Upload Photos</Label>
+                      <PhotoUploader timeBlock={`${selectedDate}-${selectedTimeBlock}`} />
                     </div>
                   </div>
                 </div>
@@ -529,6 +459,9 @@ export default function AdminPage() {
                     onChange={handleBackgroundUpload}
                     disabled={uploading}
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Large images will be automatically compressed before upload
+                  </p>
                 </div>
                 {uploading && <p className="text-sm text-muted-foreground">Uploading...</p>}
               </div>

@@ -11,7 +11,6 @@ import { ArrowLeft, Calendar, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { downloadAllPhotosAsZip, countTotalPhotosForDay } from "@/lib/zip-utils"
 import { useSettingsStore } from "@/lib/settings-store"
-import { DebugSettings } from "@/components/debug-settings" // Import the debug component
 
 export default function EventGallery() {
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null)
@@ -345,9 +344,6 @@ export default function EventGallery() {
           </div>
         </div>
       </div>
-
-      {/* Add the debug component */}
-      <DebugSettings />
     </div>
   )
 }

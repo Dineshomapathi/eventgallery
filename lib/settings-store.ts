@@ -123,6 +123,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   // Update last day only setting
   setLastDayOnly: async (enabled) => {
     try {
+      // First, update the local state immediately for better UI responsiveness
+      set({ lastDayOnly: enabled })
+
       const response = await fetch("/api/settings", {
         method: "POST",
         headers: {
@@ -149,6 +152,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       await get().fetchSettings()
     } catch (error) {
       console.error("Error updating settings:", error)
+      // If there was an error, revert the state change
+      const { lastDayOnly } = get()
+      set({ lastDayOnly: !enabled })
     }
   },
 

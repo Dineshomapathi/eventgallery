@@ -24,9 +24,10 @@ export async function getSettings(): Promise<AppSettings> {
       return defaultSettings
     }
 
+    // Ensure boolean values are properly handled
     return {
-      downloadsEnabled: data.downloads_enabled || false,
-      lastDayOnly: data.last_day_only || true,
+      downloadsEnabled: Boolean(data.downloads_enabled) || false,
+      lastDayOnly: data.last_day_only === false ? false : true, // Explicitly handle false case
       lastEventDay: data.last_event_day || "2025-04-25",
     }
   } catch (error) {
@@ -38,19 +39,34 @@ export async function getSettings(): Promise<AppSettings> {
 // Update settings in the database
 export async function updateSettings(settings: Partial<AppSettings>): Promise<boolean> {
   try {
-    const { error } = await supabase.from("settings").upsert({
+    console.log("Server updating settings:", settings)
+
+    // Prepare the data for upsert, ensuring boolean values are properly handled
+    const data: any = {
       id: "global",
-      downloads_enabled: settings.downloadsEnabled,
-      last_day_only: settings.lastDayOnly,
-      last_event_day: settings.lastEventDay,
       updated_at: new Date().toISOString(),
-    })
+    }
+
+    if (settings.downloadsEnabled !== undefined) {
+      data.downloads_enabled = Boolean(settings.downloadsEnabled)
+    }
+
+    if (settings.lastDayOnly !== undefined) {
+      data.last_day_only = Boolean(settings.lastDayOnly)
+    }
+
+    if (settings.lastEventDay !== undefined) {
+      data.last_event_day = settings.lastEventDay
+    }
+
+    const { error } = await supabase.from("settings").upsert(data)
 
     if (error) {
       console.error("Error updating settings:", error)
       return false
     }
 
+    console.log("Settings updated successfully")
     return true
   } catch (error) {
     console.error("Error updating settings:", error)

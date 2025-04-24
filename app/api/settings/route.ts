@@ -24,13 +24,28 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const settings = (await request.json()) as Partial<AppSettings>
+    console.log("Updating settings:", settings)
+
+    // Make sure boolean values are properly handled
+    if (settings.lastDayOnly !== undefined) {
+      settings.lastDayOnly = Boolean(settings.lastDayOnly)
+    }
+    if (settings.downloadsEnabled !== undefined) {
+      settings.downloadsEnabled = Boolean(settings.downloadsEnabled)
+    }
+
     const success = await updateSettings(settings)
 
     if (!success) {
       return NextResponse.json({ error: "Failed to update settings" }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true })
+    // Return the updated settings
+    const updatedSettings = await getSettings()
+    return NextResponse.json({
+      success: true,
+      settings: updatedSettings,
+    })
   } catch (error) {
     console.error("Error updating settings:", error)
     return NextResponse.json({ error: "Failed to update settings" }, { status: 500 })

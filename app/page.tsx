@@ -23,7 +23,12 @@ export default function EventGallery() {
   const isMobile = useMobile()
 
   // Get download settings
-  const isDownloadAllowed = useSettingsStore((state) => state.isDownloadAllowed())
+  const { isDownloadAllowed, fetchSettings } = useSettingsStore()
+
+  // Fetch settings on component mount
+  useEffect(() => {
+    fetchSettings()
+  }, [fetchSettings])
 
   // Time blocks from 8am to 6pm in 2-hour increments
   const timeBlocks = [

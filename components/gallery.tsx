@@ -43,7 +43,12 @@ const Gallery = ({ blockId, isAdmin = false, showDayDownload = true }: GalleryPr
   const { toast } = useToast()
 
   // Get download settings
-  const isDownloadAllowed = useSettingsStore((state) => state.isDownloadAllowed())
+  const { isDownloadAllowed, fetchSettings } = useSettingsStore()
+
+  // Fetch settings on component mount
+  useEffect(() => {
+    fetchSettings()
+  }, [fetchSettings])
 
   // Extract the time block part for API query
   const getTimeBlockForQuery = useCallback(() => {
@@ -306,7 +311,7 @@ const Gallery = ({ blockId, isAdmin = false, showDayDownload = true }: GalleryPr
         <h2 className="text-xl font-bold text-blue-800">{getEventName()}</h2>
 
         {/* Show download button if we have pagination info and downloads are allowed */}
-        {!loading && paginationInfo && paginationInfo.total > 0 && isDownloadAllowed && (
+        {!loading && paginationInfo && paginationInfo.total > 0 && (isDownloadAllowed || isAdmin) && (
           <div className="flex items-center">
             {/* Download all photos from time block button */}
             <button

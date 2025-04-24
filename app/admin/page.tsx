@@ -107,8 +107,8 @@ export default function AdminPage() {
   }
 
   // Toggle downloads enabled
-  const handleToggleDownloads = (checked: boolean) => {
-    setDownloadsEnabled(checked)
+  const handleToggleDownloads = async (checked: boolean) => {
+    await setDownloadsEnabled(checked)
 
     toast({
       title: checked ? "Downloads enabled" : "Downloads disabled",
@@ -117,14 +117,25 @@ export default function AdminPage() {
   }
 
   // Toggle last day only
-  const handleToggleLastDayOnly = (checked: boolean) => {
-    setLastDayOnly(checked)
+  const handleToggleLastDayOnly = async (checked: boolean) => {
+    await setLastDayOnly(checked)
 
     toast({
       title: checked ? "Last day only enabled" : "Last day only disabled",
       description: checked
         ? "Downloads will only be available on the last day of the event"
         : "Downloads will be available on all days",
+    })
+  }
+
+  // Update last event day
+  const handleLastEventDayChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const date = e.target.value
+    await setLastEventDay(date)
+
+    toast({
+      title: "Last event day updated",
+      description: `Last event day set to ${new Date(date).toLocaleDateString()}`,
     })
   }
 
@@ -468,7 +479,7 @@ export default function AdminPage() {
                     id="last-event-day"
                     type="date"
                     value={lastEventDay}
-                    onChange={(e) => setLastEventDay(e.target.value)}
+                    onChange={(e) => handleLastEventDayChange(e)}
                     disabled={!downloadsEnabled || !lastDayOnly}
                     className="max-w-xs"
                   />

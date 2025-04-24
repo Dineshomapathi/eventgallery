@@ -6,10 +6,10 @@ export async function GET(request: Request, { params }: { params: { timeBlock: s
     const timeBlock = params.timeBlock
     console.log("API: Fetching photos for time block:", timeBlock)
 
-    // Get URL parameters for pagination if provided
+    // Get URL parameters for pagination
     const url = new URL(request.url)
     const page = Number.parseInt(url.searchParams.get("page") || "1")
-    const limit = Number.parseInt(url.searchParams.get("limit") || "100") // Default to a high number to get all photos
+    const limit = Number.parseInt(url.searchParams.get("limit") || "12") // Default to 12 photos per page
 
     // Calculate offset for pagination
     const offset = (page - 1) * limit
@@ -22,10 +22,12 @@ export async function GET(request: Request, { params }: { params: { timeBlock: s
 
     if (countError) {
       console.error("Error counting photos:", countError)
-      return NextResponse.json({ photos: [] })
+      return NextResponse.json({ error: "Failed to count photos" }, { status: 500 })
     }
 
-    // Now get the actual photos with pagination
+    console.log(`API: Found total of ${count} photos for time block:`, timeBlock)
+
+    // Now get the actual photos for the current page only
     const { data, error } = await supabase
       .from("photos")
       .select("*")
@@ -35,10 +37,10 @@ export async function GET(request: Request, { params }: { params: { timeBlock: s
 
     if (error) {
       console.error("Error fetching photos:", error)
-      return NextResponse.json({ photos: [] })
+      return NextResponse.json({ error: "Failed to fetch photos" }, { status: 500 })
     }
 
-    console.log(`API: Found ${data.length} photos for time block:`, timeBlock)
+    console.log(`API: Returning ${data.length} photos for page ${page} (limit: ${limit})`)
 
     // Format the photos to match the expected structure
     const photos = data.map((photo) => ({

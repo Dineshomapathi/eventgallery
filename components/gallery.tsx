@@ -42,13 +42,24 @@ const Gallery = ({ blockId, isAdmin = false, showDayDownload = true }: GalleryPr
   const [isDownloading, setIsDownloading] = useState(false)
   const { toast } = useToast()
 
-  // Get download settings
-  const { isDownloadAllowed, fetchSettings } = useSettingsStore()
+  // Get download settings directly from the store
+  const settingsStore = useSettingsStore()
+  const { isDownloadAllowed, downloadsEnabled } = settingsStore
 
   // Fetch settings on component mount
   useEffect(() => {
-    fetchSettings()
-  }, [fetchSettings])
+    const loadSettings = async () => {
+      await settingsStore.fetchSettings()
+      console.log("Gallery: Settings loaded", {
+        isDownloadAllowed: settingsStore.isDownloadAllowed,
+        downloadsEnabled: settingsStore.downloadsEnabled,
+        lastDayOnly: settingsStore.lastDayOnly,
+        lastEventDay: settingsStore.lastEventDay,
+      })
+    }
+
+    loadSettings()
+  }, [])
 
   // Extract the time block part for API query
   const getTimeBlockForQuery = useCallback(() => {
@@ -305,13 +316,23 @@ const Gallery = ({ blockId, isAdmin = false, showDayDownload = true }: GalleryPr
     return pageNumbers
   }
 
+  // Debug: Log the current download settings
+  useEffect(() => {
+    console.log("Gallery render - download settings:", {
+      isAdmin,
+      isDownloadAllowed,
+      downloadsEnabled,
+      shouldShowDownload: isAdmin || isDownloadAllowed,
+    })
+  }, [isAdmin, isDownloadAllowed, downloadsEnabled])
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold text-blue-800">{getEventName()}</h2>
 
         {/* Show download button if we have pagination info and downloads are allowed */}
-        {!loading && paginationInfo && paginationInfo.total > 0 && (isDownloadAllowed || isAdmin) && (
+        {!loading && paginationInfo && paginationInfo.total > 0 && (isAdmin || isDownloadAllowed) && (
           <div className="flex items-center">
             {/* Download all photos from time block button */}
             <button

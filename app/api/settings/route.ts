@@ -5,7 +5,15 @@ import { getSettings, updateSettings, type AppSettings } from "@/lib/server-sett
 export async function GET() {
   try {
     const settings = await getSettings()
-    return NextResponse.json(settings)
+
+    // Add cache control headers
+    return NextResponse.json(settings, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
+      },
+    })
   } catch (error) {
     console.error("Error fetching settings:", error)
     return NextResponse.json({ error: "Failed to fetch settings" }, { status: 500 })

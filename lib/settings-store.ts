@@ -9,9 +9,12 @@ interface SettingsState {
 
   // Loading state
   isLoading: boolean
+  lastFetchTime: string | null
+  lastFetchError: string | null
 
   // Actions
   fetchSettings: () => Promise<void>
+  refreshSettings: () => Promise<void>
   setDownloadsEnabled: (enabled: boolean) => Promise<void>
   setLastDayOnly: (enabled: boolean) => Promise<void>
   setLastEventDay: (date: string) => Promise<void>
@@ -24,22 +27,44 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   lastEventDay: "2025-04-25",
   isDownloadAllowed: false,
   isLoading: true,
+  lastFetchTime: null,
+  lastFetchError: null,
 
   // Fetch settings from the server
   fetchSettings: async () => {
     try {
-      set({ isLoading: true })
-      const response = await fetch("/api/settings")
+      set({ isLoading: true, lastFetchError: null })
+      const response = await fetch("/api/settings", {
+        cache: "no-store", // Add this to prevent caching
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      })
 
       if (!response.ok) {
-        throw new Error("Failed to fetch settings")
+        const errorText = await response.text()
+        throw new Error(`Failed to fetch settings: ${response.status} ${errorText}`)
       }
 
       const data = await response.json()
+      console.log("Fetched settings:", data)
 
       // Check if today is after or equal to the last event day
       const today = new Date().toISOString().split("T")[0]
+
+      // IMPORTANT: Calculate isDownloadAllowed directly from the fetched data
+      // If downloads are enabled and either lastDayOnly is false OR today is >= lastEventDay
       const isAllowed = data.downloadsEnabled && (!data.lastDayOnly || today >= data.lastEventDay)
+
+      console.log("Download allowed calculation:", {
+        downloadsEnabled: data.downloadsEnabled,
+        lastDayOnly: data.lastDayOnly,
+        today,
+        lastEventDay: data.lastEventDay,
+        isAllowed,
+      })
 
       set({
         downloadsEnabled: data.downloadsEnabled,
@@ -47,11 +72,20 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         lastEventDay: data.lastEventDay,
         isDownloadAllowed: isAllowed,
         isLoading: false,
+        lastFetchTime: new Date().toISOString(),
       })
     } catch (error) {
       console.error("Error fetching settings:", error)
-      set({ isLoading: false })
+      set({
+        isLoading: false,
+        lastFetchError: error instanceof Error ? error.message : String(error),
+      })
     }
+  },
+
+  // Add a function to force refresh settings
+  refreshSettings: async () => {
+    await get().fetchSettings()
   },
 
   // Update downloads enabled setting
@@ -78,6 +112,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         downloadsEnabled: enabled,
         isDownloadAllowed: isAllowed,
       })
+
+      // Force refresh to ensure we have the latest settings
+      await get().fetchSettings()
     } catch (error) {
       console.error("Error updating settings:", error)
     }
@@ -107,6 +144,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         lastDayOnly: enabled,
         isDownloadAllowed: isAllowed,
       })
+
+      // Force refresh to ensure we have the latest settings
+      await get().fetchSettings()
     } catch (error) {
       console.error("Error updating settings:", error)
     }
@@ -136,6 +176,9 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         lastEventDay: date,
         isDownloadAllowed: isAllowed,
       })
+
+      // Force refresh to ensure we have the latest settings
+      await get().fetchSettings()
     } catch (error) {
       console.error("Error updating settings:", error)
     }

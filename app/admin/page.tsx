@@ -502,6 +502,67 @@ export default function AdminPage() {
                 </div>
               </div>
             </CardContent>
+            <div className="mt-6 pt-6 border-t">
+              <h3 className="text-lg font-medium mb-3">Debug Tools</h3>
+              <div className="space-y-4">
+                <div className="flex flex-col gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      try {
+                        const response = await fetch("/api/debug/settings")
+                        const data = await response.json()
+                        console.log("Debug settings:", data)
+                        toast({
+                          title: "Settings debug info",
+                          description: "Check the console for details",
+                        })
+                      } catch (error) {
+                        console.error("Error fetching debug info:", error)
+                        toast({
+                          title: "Error",
+                          description: "Failed to fetch debug info",
+                          variant: "destructive",
+                        })
+                      }
+                    }}
+                  >
+                    Check Database Settings
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      useSettingsStore.getState().refreshSettings()
+                      toast({
+                        title: "Settings refreshed",
+                        description: "Settings have been refreshed from the server",
+                      })
+                    }}
+                  >
+                    Force Refresh Settings
+                  </Button>
+
+                  <div className="text-sm text-muted-foreground mt-2">
+                    <p>Current state in store:</p>
+                    <pre className="bg-slate-100 p-2 rounded text-xs mt-1 overflow-auto">
+                      {JSON.stringify(
+                        {
+                          downloadsEnabled,
+                          lastDayOnly,
+                          lastEventDay,
+                          isDownloadAllowed: useSettingsStore.getState().isDownloadAllowed,
+                          lastFetchTime: useSettingsStore.getState().lastFetchTime,
+                          lastFetchError: useSettingsStore.getState().lastFetchError,
+                        },
+                        null,
+                        2,
+                      )}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+            </div>
           </Card>
         </TabsContent>
 

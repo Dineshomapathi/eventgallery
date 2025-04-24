@@ -273,7 +273,7 @@ export default function EventGallery() {
             {/* Time block selection */}
             {selectedEvent && !selectedBlock && (
               <>
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-2">
                   <h2 className="text-xl font-bold text-white bg-teal-800/70 backdrop-blur-sm py-2 px-4 rounded-lg">
                     {getEventDescription()} {showTimeBlocks ? "- Select a Time Block" : ""}
                   </h2>
@@ -283,17 +283,19 @@ export default function EventGallery() {
                     <Button
                       onClick={handleDownloadAllFromDay}
                       disabled={isDownloadingDay}
-                      className="flex items-center bg-green-600 hover:bg-green-700 text-white"
+                      className="flex items-center justify-center bg-green-600 hover:bg-green-700 text-white text-sm sm:text-base px-2 sm:px-3 py-1 sm:py-2 h-auto self-start sm:self-auto"
                     >
                       {isDownloadingDay ? (
                         <>
-                          <RefreshCw size={16} className="mr-2 animate-spin" />
-                          Downloading...
+                          <RefreshCw size={isMobile ? 14 : 16} className="mr-1 sm:mr-2 animate-spin" />
+                          <span className="hidden xs:inline">Downloading...</span>
+                          <span className="xs:hidden">Loading...</span>
                         </>
                       ) : (
                         <>
-                          <Calendar size={16} className="mr-2" />
-                          Download All Photos ({totalDayPhotos})
+                          <Calendar size={isMobile ? 14 : 16} className="mr-1 sm:mr-2" />
+                          <span className="hidden xs:inline">Download All Photos ({totalDayPhotos})</span>
+                          <span className="xs:hidden">Download All ({totalDayPhotos})</span>
                         </>
                       )}
                     </Button>

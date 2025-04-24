@@ -373,11 +373,11 @@ export default function AdminGalleryView() {
 
           {/* Gallery View */}
           <div className="mt-6 p-4 bg-white rounded-lg border">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex flex-col gap-3 mb-4">
               <h2 className="text-xl font-bold">{getEventDescription()}</h2>
 
               {/* Show download buttons */}
-              <div className="flex items-center">
+              <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2">
                 {/* Download all photos from time block button */}
                 {paginationInfo && paginationInfo.total > 0 && (
                   <Button
@@ -385,17 +385,19 @@ export default function AdminGalleryView() {
                     disabled={isDownloading || isDownloadingDay}
                     variant="outline"
                     size="sm"
-                    className="flex items-center mr-2"
+                    className="flex items-center justify-center"
                   >
                     {isDownloading ? (
                       <>
                         <RefreshCw size={14} className="mr-1.5 animate-spin" />
-                        Downloading...
+                        <span className="hidden xs:inline">Downloading...</span>
+                        <span className="xs:hidden">Loading...</span>
                       </>
                     ) : (
                       <>
                         <Download size={14} className="mr-1.5" />
-                        Download Block
+                        <span className="hidden xs:inline">Download Block</span>
+                        <span className="xs:hidden">Download</span>
                       </>
                     )}
                   </Button>
@@ -408,26 +410,28 @@ export default function AdminGalleryView() {
                     disabled={isDownloading || isDownloadingDay}
                     variant="outline"
                     size="sm"
-                    className="flex items-center mr-2"
+                    className="flex items-center justify-center"
                   >
                     {isDownloadingDay ? (
                       <>
                         <RefreshCw size={14} className="mr-1.5 animate-spin" />
-                        Downloading...
+                        <span className="hidden xs:inline">Downloading...</span>
+                        <span className="xs:hidden">Loading...</span>
                       </>
                     ) : (
                       <>
                         <Calendar size={14} className="mr-1.5" />
-                        Download Day ({totalDayPhotos})
+                        <span className="hidden xs:inline">Download Day ({totalDayPhotos})</span>
+                        <span className="xs:hidden">Day ({totalDayPhotos})</span>
                       </>
                     )}
                   </Button>
                 )}
 
                 {paginationInfo && paginationInfo.total > 0 && (
-                  <div className="text-sm text-gray-600 flex items-center">
-                    <Info size={14} className="mr-1.5" />
-                    Total: {paginationInfo.total} photos
+                  <div className="text-sm text-gray-600 flex items-center col-span-2 sm:col-span-1 justify-center sm:justify-start">
+                    <Info size={14} className="mr-1.5 flex-shrink-0" />
+                    <span className="whitespace-nowrap">Total: {paginationInfo.total}</span>
                   </div>
                 )}
               </div>

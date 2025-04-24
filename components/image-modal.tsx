@@ -15,6 +15,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast"
+import { useMobile } from "@/hooks/use-mobile"
 
 interface Photo {
   id: string
@@ -38,6 +39,7 @@ const ImageModal = ({ photo, onClose, onDelete, showDeleteOption = false }: Imag
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [imageLoaded, setImageLoaded] = useState(false)
   const { toast } = useToast()
+  const isMobile = useMobile()
 
   // Close modal on escape key
   useEffect(() => {
@@ -150,11 +152,12 @@ const ImageModal = ({ photo, onClose, onDelete, showDeleteOption = false }: Imag
             <button
               onClick={handleDownload}
               disabled={downloading || !imageLoaded}
-              className="flex items-center px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 transition-colors disabled:opacity-50"
+              className="flex items-center px-2 sm:px-4 py-1.5 sm:py-2 bg-teal-600 text-white rounded hover:bg-teal-700 transition-colors disabled:opacity-50"
               aria-label="Download image"
             >
-              <Download size={20} className="mr-2" />
-              <span>{downloading ? "Downloading..." : "Download"}</span>
+              <Download size={isMobile ? 16 : 20} className="mr-1 sm:mr-2" />
+              <span className="hidden xs:inline">{downloading ? "Downloading..." : "Download"}</span>
+              <span className="xs:hidden">{downloading ? "..." : "Save"}</span>
             </button>
 
             {showDeleteOption && (

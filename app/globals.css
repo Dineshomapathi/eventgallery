@@ -106,3 +106,21 @@ body {
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   }
 }
+
+/* Extra small screens */
+@media (min-width: 320px) {
+  .xs\:inline {
+    display: inline;
+  }
+  .xs\:hidden {
+    display: none;
+  }
+}
+
+/* Default state (mobile first) */
+.xs\:inline {
+  display: none;
+}
+.xs\:hidden {
+  display: inline;
+}

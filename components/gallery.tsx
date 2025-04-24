@@ -328,35 +328,38 @@ const Gallery = ({ blockId, isAdmin = false, showDayDownload = true }: GalleryPr
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-2">
         <h2 className="text-xl font-bold text-blue-800">{getEventName()}</h2>
 
         {/* Show download button if we have pagination info and downloads are allowed */}
         {!loading && paginationInfo && paginationInfo.total > 0 && (isAdmin || isDownloadAllowed) && (
-          <div className="flex items-center">
+          <div className="flex flex-row items-center justify-between sm:justify-end w-full sm:w-auto gap-2 sm:gap-3">
             {/* Download all photos from time block button */}
             <button
               onClick={handleDownloadAll}
               disabled={isDownloading}
-              className="mr-3 flex items-center text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded transition-colors disabled:opacity-50"
+              className="flex items-center justify-center text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded transition-colors disabled:opacity-50"
+              aria-label="Download photos"
             >
               {isDownloading ? (
                 <>
                   <RefreshCw size={14} className="mr-1.5 animate-spin" />
-                  Downloading...
+                  <span className="hidden xs:inline">Downloading...</span>
+                  <span className="xs:hidden">Loading...</span>
                 </>
               ) : (
                 <>
                   <Download size={14} className="mr-1.5" />
-                  Download Photos
+                  <span className="hidden xs:inline">Download Photos</span>
+                  <span className="xs:hidden">Download</span>
                 </>
               )}
             </button>
 
             {/* Photo count info */}
             <div className="flex items-center text-sm text-blue-600">
-              <Info size={16} className="mr-1" />
-              <span>{paginationInfo.total} total photos</span>
+              <Info size={16} className="mr-1 flex-shrink-0" />
+              <span className="whitespace-nowrap">{paginationInfo.total} photos</span>
             </div>
           </div>
         )}

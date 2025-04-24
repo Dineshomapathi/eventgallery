@@ -7,15 +7,23 @@ import EventSelector from "@/components/event-selector"
 import { useToast } from "@/hooks/use-toast"
 import { useMobile } from "@/hooks/use-mobile"
 import Image from "next/image"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Calendar, RefreshCw } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { downloadAllPhotosAsZip, countTotalPhotosForDay } from "@/lib/zip-utils"
+import { useSettingsStore } from "@/lib/settings-store"
 
 export default function EventGallery() {
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null)
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null)
   const [currentTime, setCurrentTime] = useState<Date>(new Date())
   const [restrictionsDisabled, setRestrictionsDisabled] = useState<boolean>(false)
+  const [totalDayPhotos, setTotalDayPhotos] = useState<number>(0)
+  const [isDownloadingDay, setIsDownloadingDay] = useState(false)
   const { toast } = useToast()
   const isMobile = useMobile()
+
+  // Get download settings
+  const isDownloadAllowed = useSettingsStore((state) => state.isDownloadAllowed())
 
   // Time blocks from 8am to 6pm in 2-hour increments
   const timeBlocks = [
@@ -51,6 +59,26 @@ export default function EventGallery() {
 
     return () => clearInterval(interval)
   }, [])
+
+  // Fetch total photos for the day when an event is selected
+  useEffect(() => {
+    const fetchTotalDayPhotos = async () => {
+      if (!selectedEvent) return
+
+      // Extract the date part (YYYY-MM-DD) from the event
+      let datePart = selectedEvent
+      if (selectedEvent.includes("-dinner")) {
+        datePart = selectedEvent.split("-dinner")[0]
+      } else if (selectedEvent.split("-").length > 3) {
+        datePart = selectedEvent.split("-").slice(0, 3).join("-")
+      }
+
+      const count = await countTotalPhotosForDay(datePart)
+      setTotalDayPhotos(count)
+    }
+
+    fetchTotalDayPhotos()
+  }, [selectedEvent])
 
   // Update the isBlockAccessible function to check the date as well
   const isBlockAccessible = (startHour: number, eventDate: string) => {
@@ -146,6 +174,40 @@ export default function EventGallery() {
     }
   }
 
+  // Handle download all photos from day
+  const handleDownloadAllFromDay = async () => {
+    if (totalDayPhotos === 0 || isDownloadingDay || !selectedEvent) return
+
+    setIsDownloadingDay(true)
+    try {
+      // Extract the date part (YYYY-MM-DD) from the event
+      let datePart = selectedEvent
+      if (selectedEvent.includes("-dinner")) {
+        datePart = selectedEvent.split("-dinner")[0]
+      } else if (selectedEvent.split("-").length > 3) {
+        datePart = selectedEvent.split("-").slice(0, 3).join("-")
+      }
+
+      const success = await downloadAllPhotosAsZip(datePart, totalDayPhotos, true)
+
+      if (success) {
+        toast({
+          title: "Download complete",
+          description: `Successfully downloaded all ${totalDayPhotos} photos from the day as a zip file.`,
+        })
+      }
+    } catch (error) {
+      console.error("Error downloading all photos from day:", error)
+      toast({
+        title: "Download failed",
+        description: "There was a problem downloading the photos. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDownloadingDay(false)
+    }
+  }
+
   // Determine if we should show time blocks or the dinner event
   const showTimeBlocks = selectedEvent && !selectedEvent.includes("-dinner")
   const showDinner = selectedEvent && selectedEvent.includes("-dinner")
@@ -206,9 +268,32 @@ export default function EventGallery() {
             {/* Time block selection */}
             {selectedEvent && !selectedBlock && (
               <>
-                <h2 className="text-xl font-bold mb-4 text-center text-white bg-teal-800/70 backdrop-blur-sm py-2 rounded-lg">
-                  {getEventDescription()} - {showTimeBlocks ? "Select a Time Block" : ""}
-                </h2>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-bold text-white bg-teal-800/70 backdrop-blur-sm py-2 px-4 rounded-lg">
+                    {getEventDescription()} {showTimeBlocks ? "- Select a Time Block" : ""}
+                  </h2>
+
+                  {/* Download Day button - only shown at the day level and if downloads are allowed */}
+                  {isDownloadAllowed && totalDayPhotos > 0 && (
+                    <Button
+                      onClick={handleDownloadAllFromDay}
+                      disabled={isDownloadingDay}
+                      className="flex items-center bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      {isDownloadingDay ? (
+                        <>
+                          <RefreshCw size={16} className="mr-2 animate-spin" />
+                          Downloading...
+                        </>
+                      ) : (
+                        <>
+                          <Calendar size={16} className="mr-2" />
+                          Download All Photos ({totalDayPhotos})
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
 
                 {showTimeBlocks && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
@@ -235,7 +320,7 @@ export default function EventGallery() {
             {/* Gallery view */}
             {selectedEvent && selectedBlock && (
               <div className="bg-white/90 backdrop-blur-sm p-6 rounded-lg shadow-lg">
-                <Gallery blockId={`${selectedEvent}-${selectedBlock}`} isAdmin={false} />
+                <Gallery blockId={`${selectedEvent}-${selectedBlock}`} isAdmin={false} showDayDownload={false} />
               </div>
             )}
           </div>

@@ -6,10 +6,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react"
+import { ChevronLeft, ChevronRight, RefreshCw, Download, Calendar, Info } from "lucide-react"
 import ImageThumbnail from "@/components/image-thumbnail"
 import ImageModal from "@/components/image-modal"
 import { useToast } from "@/hooks/use-toast"
+import { downloadAllPhotosAsZip, countTotalPhotosForDay } from "@/lib/zip-utils"
 
 interface Photo {
   id: string
@@ -37,7 +38,13 @@ export default function AdminGalleryView() {
   const [currentPage, setCurrentPage] = useState(1)
   const [paginationInfo, setPaginationInfo] = useState<PaginationInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [isDownloading, setIsDownloading] = useState(false)
+  const [isDownloadingDay, setIsDownloadingDay] = useState(false)
+  const [totalDayPhotos, setTotalDayPhotos] = useState<number>(0)
   const { toast } = useToast()
+
+  // Always allow downloads in admin view
+  const isAdmin = true
 
   // Time blocks from 8am to 6pm in 2-hour increments
   const timeBlocks = [
@@ -63,12 +70,18 @@ export default function AdminGalleryView() {
   }
 
   // Get the gallery block ID based on selections
-  const getGalleryBlockId = () => {
+  const getGalleryBlockId = useCallback(() => {
     if (selectedDate === "2025-04-24" && viewSpecialEvent) {
       return "2025-04-24-dinner"
     }
     return `${selectedDate}-${selectedTimeBlock}`
-  }
+  }, [selectedDate, selectedTimeBlock, viewSpecialEvent])
+
+  // Count total photos for the day
+  const fetchTotalDayPhotos = useCallback(async () => {
+    const count = await countTotalPhotosForDay(selectedDate)
+    setTotalDayPhotos(count)
+  }, [selectedDate])
 
   // Fetch photos for the current page
   const fetchPhotos = useCallback(
@@ -107,14 +120,15 @@ export default function AdminGalleryView() {
         setLoading(false)
       }
     },
-    [selectedDate, selectedTimeBlock, viewSpecialEvent, toast],
+    [selectedDate, selectedTimeBlock, viewSpecialEvent, getGalleryBlockId, toast],
   )
 
   // Load photos when selection changes
   useEffect(() => {
     setCurrentPage(1) // Reset to first page when selection changes
     fetchPhotos(1)
-  }, [selectedDate, selectedTimeBlock, viewSpecialEvent, fetchPhotos])
+    fetchTotalDayPhotos()
+  }, [selectedDate, selectedTimeBlock, viewSpecialEvent, fetchPhotos, fetchTotalDayPhotos])
 
   // Handle photo deletion
   const handlePhotoDelete = (id: string) => {
@@ -143,6 +157,59 @@ export default function AdminGalleryView() {
 
     // Close the modal if it's open
     setSelectedImage(null)
+  }
+
+  // Handle download all photos
+  const handleDownloadAll = async () => {
+    if (!paginationInfo || paginationInfo.total === 0 || isDownloading) return
+
+    setIsDownloading(true)
+    try {
+      const blockId = getGalleryBlockId()
+      const success = await downloadAllPhotosAsZip(blockId, paginationInfo.total)
+
+      if (success) {
+        toast({
+          title: "Download complete",
+          description: `Successfully downloaded ${paginationInfo.total} photos as a zip file.`,
+        })
+      }
+    } catch (error) {
+      console.error("Error downloading all photos:", error)
+      toast({
+        title: "Download failed",
+        description: "There was a problem downloading the photos. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDownloading(false)
+    }
+  }
+
+  // Handle download all photos from day
+  const handleDownloadAllFromDay = async () => {
+    if (totalDayPhotos === 0 || isDownloadingDay) return
+
+    setIsDownloadingDay(true)
+    try {
+      const success = await downloadAllPhotosAsZip(selectedDate, totalDayPhotos, true)
+
+      if (success) {
+        toast({
+          title: "Download complete",
+          description: `Successfully downloaded all ${totalDayPhotos} photos from the day as a zip file.`,
+        })
+      }
+    } catch (error) {
+      console.error("Error downloading all photos from day:", error)
+      toast({
+        title: "Download failed",
+        description: "There was a problem downloading the photos. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDownloadingDay(false)
+    }
   }
 
   // Pagination controls
@@ -309,8 +376,61 @@ export default function AdminGalleryView() {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold">{getEventDescription()}</h2>
 
-              {/* Show total count if available */}
-              {paginationInfo && <div className="text-sm text-gray-600">Total: {paginationInfo.total} photos</div>}
+              {/* Show download buttons */}
+              <div className="flex items-center">
+                {/* Download all photos from time block button */}
+                {paginationInfo && paginationInfo.total > 0 && (
+                  <Button
+                    onClick={handleDownloadAll}
+                    disabled={isDownloading || isDownloadingDay}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center mr-2"
+                  >
+                    {isDownloading ? (
+                      <>
+                        <RefreshCw size={14} className="mr-1.5 animate-spin" />
+                        Downloading...
+                      </>
+                    ) : (
+                      <>
+                        <Download size={14} className="mr-1.5" />
+                        Download Block
+                      </>
+                    )}
+                  </Button>
+                )}
+
+                {/* Download all photos from day button */}
+                {totalDayPhotos > 0 && (
+                  <Button
+                    onClick={handleDownloadAllFromDay}
+                    disabled={isDownloading || isDownloadingDay}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center mr-2"
+                  >
+                    {isDownloadingDay ? (
+                      <>
+                        <RefreshCw size={14} className="mr-1.5 animate-spin" />
+                        Downloading...
+                      </>
+                    ) : (
+                      <>
+                        <Calendar size={14} className="mr-1.5" />
+                        Download Day ({totalDayPhotos})
+                      </>
+                    )}
+                  </Button>
+                )}
+
+                {paginationInfo && paginationInfo.total > 0 && (
+                  <div className="text-sm text-gray-600 flex items-center">
+                    <Info size={14} className="mr-1.5" />
+                    Total: {paginationInfo.total} photos
+                  </div>
+                )}
+              </div>
             </div>
 
             {loading ? (

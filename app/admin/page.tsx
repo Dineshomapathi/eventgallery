@@ -24,6 +24,8 @@ import {
 } from "@/components/ui/dialog"
 import { AlertTriangle } from "lucide-react"
 import { compressImage } from "@/lib/image-compression"
+import { useSettingsStore } from "@/lib/settings-store"
+import { Info } from "lucide-react"
 
 export default function AdminPage() {
   const [uploading, setUploading] = useState(false)
@@ -38,6 +40,14 @@ export default function AdminPage() {
 
   // Add state for demo date
   const [demoDate, setDemoDate] = useState<Date>(new Date())
+
+  // Get settings from store
+  const downloadsEnabled = useSettingsStore((state) => state.downloadsEnabled)
+  const setDownloadsEnabled = useSettingsStore((state) => state.setDownloadsEnabled)
+  const lastDayOnly = useSettingsStore((state) => state.lastDayOnly)
+  const setLastDayOnly = useSettingsStore((state) => state.setLastDayOnly)
+  const lastEventDay = useSettingsStore((state) => state.lastEventDay)
+  const setLastEventDay = useSettingsStore((state) => state.setLastEventDay)
 
   // Load restrictions setting from localStorage on mount
   useEffect(() => {
@@ -93,6 +103,28 @@ export default function AdminPage() {
       description: checked
         ? "All content is now accessible regardless of date/time"
         : "Content will only be accessible based on the event schedule",
+    })
+  }
+
+  // Toggle downloads enabled
+  const handleToggleDownloads = (checked: boolean) => {
+    setDownloadsEnabled(checked)
+
+    toast({
+      title: checked ? "Downloads enabled" : "Downloads disabled",
+      description: checked ? "Users can now download photos" : "Users can no longer download photos",
+    })
+  }
+
+  // Toggle last day only
+  const handleToggleLastDayOnly = (checked: boolean) => {
+    setLastDayOnly(checked)
+
+    toast({
+      title: checked ? "Last day only enabled" : "Last day only disabled",
+      description: checked
+        ? "Downloads will only be available on the last day of the event"
+        : "Downloads will be available on all days",
     })
   }
 
@@ -255,10 +287,11 @@ export default function AdminPage() {
       </div>
 
       <Tabs defaultValue="photos">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="photos">Photo Upload</TabsTrigger>
           <TabsTrigger value="gallery">Manage Gallery</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
+          <TabsTrigger value="downloads">Download Settings</TabsTrigger>
           <TabsTrigger value="demo-controls">Demo Controls</TabsTrigger>
           <TabsTrigger value="background">Background Upload</TabsTrigger>
           <TabsTrigger value="purge">Purge Data</TabsTrigger>
@@ -375,6 +408,83 @@ export default function AdminPage() {
                         {restrictionsDisabled
                           ? "Time restrictions are currently disabled. All content is accessible to users regardless of date/time."
                           : "Time restrictions are currently enabled. Content will only be accessible based on the event schedule."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="downloads">
+          <Card>
+            <CardHeader>
+              <CardTitle>Download Settings</CardTitle>
+              <CardDescription>Configure photo download functionality</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {/* Enable/Disable Downloads */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="enable-downloads" className="text-base">
+                      Enable Downloads
+                    </Label>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Allow users to download photos from the gallery
+                    </p>
+                  </div>
+                  <Switch id="enable-downloads" checked={downloadsEnabled} onCheckedChange={handleToggleDownloads} />
+                </div>
+
+                {/* Last Day Only Setting */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="last-day-only" className="text-base">
+                      Last Day Only
+                    </Label>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Only allow downloads on the last day of the event
+                    </p>
+                  </div>
+                  <Switch
+                    id="last-day-only"
+                    checked={lastDayOnly}
+                    onCheckedChange={handleToggleLastDayOnly}
+                    disabled={!downloadsEnabled}
+                  />
+                </div>
+
+                {/* Last Day Setting */}
+                <div className="grid w-full items-center gap-1.5">
+                  <Label htmlFor="last-event-day" className="text-base">
+                    Last Day of Event
+                  </Label>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Set the date when downloads will be enabled (if Last Day Only is enabled)
+                  </p>
+                  <Input
+                    id="last-event-day"
+                    type="date"
+                    value={lastEventDay}
+                    onChange={(e) => setLastEventDay(e.target.value)}
+                    disabled={!downloadsEnabled || !lastDayOnly}
+                    className="max-w-xs"
+                  />
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mt-4">
+                  <div className="flex items-start">
+                    <Info className="h-5 w-5 text-blue-500 mr-2 mt-0.5" />
+                    <div>
+                      <h3 className="text-sm font-medium text-blue-800">Current Status</h3>
+                      <p className="text-sm text-blue-700 mt-1">
+                        {!downloadsEnabled
+                          ? "Downloads are currently disabled for all users."
+                          : lastDayOnly
+                            ? `Downloads will only be available on or after ${new Date(lastEventDay).toLocaleDateString()}.`
+                            : "Downloads are currently enabled for all users on all days."}
                       </p>
                     </div>
                   </div>

@@ -5,12 +5,15 @@ import ImageModal from "./image-modal"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, ChevronRight, Info, RefreshCw } from "lucide-react"
+import { ChevronLeft, ChevronRight, Info, RefreshCw, Download } from "lucide-react"
 import ImageThumbnail from "./image-thumbnail"
+import { downloadAllPhotosAsZip } from "@/lib/zip-utils"
+import { useSettingsStore } from "@/lib/settings-store"
 
 interface GalleryProps {
   blockId: string
   isAdmin?: boolean
+  showDayDownload?: boolean
 }
 
 interface Photo {
@@ -29,17 +32,21 @@ interface PaginationInfo {
   totalPages: number
 }
 
-const Gallery = ({ blockId, isAdmin = false }: GalleryProps) => {
+const Gallery = ({ blockId, isAdmin = false, showDayDownload = true }: GalleryProps) => {
   const [selectedImage, setSelectedImage] = useState<Photo | null>(null)
   const [photos, setPhotos] = useState<Photo[]>([])
   const [loading, setLoading] = useState(true)
   const [paginationInfo, setPaginationInfo] = useState<PaginationInfo | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [error, setError] = useState<string | null>(null)
+  const [isDownloading, setIsDownloading] = useState(false)
   const { toast } = useToast()
 
+  // Get download settings
+  const isDownloadAllowed = useSettingsStore((state) => state.isDownloadAllowed())
+
   // Extract the time block part for API query
-  const getTimeBlockForQuery = () => {
+  const getTimeBlockForQuery = useCallback(() => {
     // Special case for dinner
     if (blockId === "2025-04-24-dinner" || blockId.endsWith("-dinner")) {
       return "2025-04-24-dinner"
@@ -59,7 +66,7 @@ const Gallery = ({ blockId, isAdmin = false }: GalleryProps) => {
 
     // If it's just a time block without a date
     return blockId
-  }
+  }, [blockId])
 
   // Fetch photos for the current page
   const fetchPhotos = useCallback(
@@ -97,30 +104,8 @@ const Gallery = ({ blockId, isAdmin = false }: GalleryProps) => {
         setLoading(false)
       }
     },
-    [blockId, toast],
+    [blockId, getTimeBlockForQuery, toast],
   )
-
-  const timeBlockForQuery = useCallback(() => {
-    // Special case for dinner
-    if (blockId === "2025-04-24-dinner" || blockId.endsWith("-dinner")) {
-      return "2025-04-24-dinner"
-    }
-
-    // If it's a regular time block with date prefix
-    if (blockId.includes("-") && blockId.split("-").length >= 4) {
-      // Format: YYYY-MM-DD-timeBlock
-      return blockId
-    }
-
-    // If it's just a date with a time block
-    if (blockId.includes("-") && blockId.split("-").length === 3) {
-      // It's a date without a time block specified
-      return blockId
-    }
-
-    // If it's just a time block without a date
-    return blockId
-  }, [blockId])
 
   // Initial load and when blockId changes
   useEffect(() => {
@@ -155,6 +140,33 @@ const Gallery = ({ blockId, isAdmin = false }: GalleryProps) => {
 
     // Close the modal if it's open
     setSelectedImage(null)
+  }
+
+  // Handle download all photos from time block
+  const handleDownloadAll = async () => {
+    if (!paginationInfo || paginationInfo.total === 0 || isDownloading) return
+
+    setIsDownloading(true)
+    try {
+      const timeBlockForQuery = getTimeBlockForQuery()
+      const success = await downloadAllPhotosAsZip(timeBlockForQuery, paginationInfo.total)
+
+      if (success) {
+        toast({
+          title: "Download complete",
+          description: `Successfully downloaded ${paginationInfo.total} photos as a zip file.`,
+        })
+      }
+    } catch (error) {
+      console.error("Error downloading all photos:", error)
+      toast({
+        title: "Download failed",
+        description: "There was a problem downloading the photos. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDownloading(false)
+    }
   }
 
   // Get the event name based on the blockId
@@ -293,11 +305,33 @@ const Gallery = ({ blockId, isAdmin = false }: GalleryProps) => {
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold text-blue-800">{getEventName()}</h2>
 
-        {/* Show info about total photos if we have pagination info */}
-        {!loading && paginationInfo && (
-          <div className="flex items-center text-sm text-blue-600">
-            <Info size={16} className="mr-1" />
-            <span>{paginationInfo.total} total photos</span>
+        {/* Show download button if we have pagination info and downloads are allowed */}
+        {!loading && paginationInfo && paginationInfo.total > 0 && isDownloadAllowed && (
+          <div className="flex items-center">
+            {/* Download all photos from time block button */}
+            <button
+              onClick={handleDownloadAll}
+              disabled={isDownloading}
+              className="mr-3 flex items-center text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded transition-colors disabled:opacity-50"
+            >
+              {isDownloading ? (
+                <>
+                  <RefreshCw size={14} className="mr-1.5 animate-spin" />
+                  Downloading...
+                </>
+              ) : (
+                <>
+                  <Download size={14} className="mr-1.5" />
+                  Download Photos
+                </>
+              )}
+            </button>
+
+            {/* Photo count info */}
+            <div className="flex items-center text-sm text-blue-600">
+              <Info size={16} className="mr-1" />
+              <span>{paginationInfo.total} total photos</span>
+            </div>
           </div>
         )}
       </div>

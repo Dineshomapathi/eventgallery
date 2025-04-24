@@ -63,9 +63,13 @@
     "svelte": "latest",
     "vue": "latest",
     "vue-router": "latest",
+    "immer": "latest",
+    "use-sync-external-store": "latest",
     "@supabase/supabase-js": "latest",
     "@vercel/blob": "latest",
-    "@vercel/analytics": "latest"
+    "@vercel/analytics": "latest",
+    "jszip": "latest",
+    "zustand": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

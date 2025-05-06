@@ -5,6 +5,9 @@ export interface AppSettings {
   downloadsEnabled: boolean
   lastDayOnly: boolean
   lastEventDay: string
+  videoUrl?: string
+  videoPath?: string
+  videoTitle?: string
 }
 
 // Default settings
@@ -12,6 +15,9 @@ export const defaultSettings: AppSettings = {
   downloadsEnabled: false,
   lastDayOnly: true,
   lastEventDay: "2025-04-25",
+  videoUrl: null,
+  videoPath: null,
+  videoTitle: null,
 }
 
 // Get settings from the database
@@ -29,6 +35,9 @@ export async function getSettings(): Promise<AppSettings> {
       downloadsEnabled: Boolean(data.downloads_enabled) || false,
       lastDayOnly: data.last_day_only === false ? false : true, // Explicitly handle false case
       lastEventDay: data.last_event_day || "2025-04-25",
+      videoUrl: data.video_url || null,
+      videoPath: data.video_path || null,
+      videoTitle: data.video_title || null,
     }
   } catch (error) {
     console.error("Error fetching settings:", error)
@@ -59,6 +68,18 @@ export async function updateSettings(settings: Partial<AppSettings>): Promise<bo
       data.last_event_day = settings.lastEventDay
     }
 
+    if (settings.videoUrl !== undefined) {
+      data.video_url = settings.videoUrl
+    }
+
+    if (settings.videoPath !== undefined) {
+      data.video_path = settings.videoPath
+    }
+
+    if (settings.videoTitle !== undefined) {
+      data.video_title = settings.videoTitle
+    }
+
     const { error } = await supabase.from("settings").upsert(data)
 
     if (error) {
@@ -87,4 +108,13 @@ export async function isDownloadAllowed(): Promise<boolean> {
   // If last day only is enabled, check if today is the last day
   const today = new Date().toISOString().split("T")[0]
   return today >= settings.lastEventDay
+}
+
+// Update video settings
+export async function updateVideoSettings(videoUrl: string, videoPath: string, videoTitle: string): Promise<boolean> {
+  return updateSettings({
+    videoUrl,
+    videoPath,
+    videoTitle,
+  })
 }

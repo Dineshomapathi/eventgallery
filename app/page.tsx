@@ -305,10 +305,14 @@ export default function EventGallery() {
               <>
                 {/* Video Player */}
                 <div className="mb-6">
+                  <h2 className="text-xl font-bold mb-3 text-center text-white bg-teal-800/80 backdrop-blur-sm py-2 rounded-lg">
+                    23rd ROPTC Event Video Highlight
+                  </h2>
                   <video
                     src="https://yolzzqcxvizsrfpnpmqh.supabase.co/storage/v1/object/public/videos//ROPTC%20Video%20Highlight%20VFA.mp4"
                     controls
-                    poster="/images/video-poster.jpg"
+                    poster="/images/video-thumbnail.png"
+                    preload="metadata"
                     className="w-full aspect-video rounded-md shadow-lg"
                   >
                     Your browser does not support the video tag.

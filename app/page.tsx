@@ -11,7 +11,6 @@ import { ArrowLeft, Calendar, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { downloadAllPhotosAsZip, countTotalPhotosForDay } from "@/lib/zip-utils"
 import { useSettingsStore } from "@/lib/settings-store"
-import VideoPlayer from "@/components/video-player"
 
 export default function EventGallery() {
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null)
@@ -304,12 +303,17 @@ export default function EventGallery() {
             {/* Event selection */}
             {!selectedEvent && (
               <>
-                {/* Video Player - only show if we have a video URL */}
-                {!videoLoading && videoUrl && (
-                  <div className="mb-6">
-                    <VideoPlayer src={videoUrl} poster="/images/video-poster.jpg" className="aspect-video shadow-lg" />
-                  </div>
-                )}
+                {/* Video Player */}
+                <div className="mb-6">
+                  <video
+                    src="https://yolzzqcxvizsrfpnpmqh.supabase.co/storage/v1/object/public/videos//ROPTC%20Video%20Highlight%20VFA.mp4"
+                    controls
+                    poster="/images/video-poster.jpg"
+                    className="w-full aspect-video rounded-md shadow-lg"
+                  >
+                    Your browser does not support the video tag.
+                  </video>
+                </div>
 
                 <h2 className="text-xl font-bold mb-4 text-center text-white bg-teal-800/70 backdrop-blur-sm py-2 rounded-lg">
                   Select an Event

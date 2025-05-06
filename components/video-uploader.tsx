@@ -82,119 +82,16 @@ export default function VideoUploader() {
     }
   }
 
-  // Function to upload a video in chunks
-  const uploadVideoInChunks = async (file: File) => {
-    const CHUNK_SIZE = 5 * 1024 * 1024 // 5MB chunks
-    const totalChunks = Math.ceil(file.size / CHUNK_SIZE)
-    const fileId = Date.now().toString() // Unique ID for this upload
-    const fileName = `${fileId}-${file.name.replace(/[^a-zA-Z0-9.-]/g, "")}`
-
-    setProgress(0)
-    setError(null)
-    setUploading(true)
-
-    try {
-      // Step 1: Initialize the upload
-      const initResponse = await fetch("/api/upload/video/init", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          fileName,
-          fileSize: file.size,
-          mimeType: file.type,
-          totalChunks,
-          title,
-          description,
-        }),
-      })
-
-      if (!initResponse.ok) {
-        const errorData = await initResponse.json()
-        throw new Error(errorData.error || "Failed to initialize upload")
-      }
-
-      const initData = await initResponse.json()
-      const uploadId = initData.uploadId
-
-      // Step 2: Upload each chunk
-      for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
-        const start = chunkIndex * CHUNK_SIZE
-        const end = Math.min(start + CHUNK_SIZE, file.size)
-        const chunk = file.slice(start, end)
-
-        const formData = new FormData()
-        formData.append("chunk", chunk)
-        formData.append("uploadId", uploadId)
-        formData.append("chunkIndex", chunkIndex.toString())
-        formData.append("totalChunks", totalChunks.toString())
-
-        const chunkResponse = await fetch("/api/upload/video/chunk", {
-          method: "POST",
-          body: formData,
-        })
-
-        if (!chunkResponse.ok) {
-          const errorData = await chunkResponse.json()
-          throw new Error(errorData.error || `Failed to upload chunk ${chunkIndex + 1}`)
-        }
-
-        // Update progress
-        setProgress(Math.round(((chunkIndex + 1) / totalChunks) * 100))
-      }
-
-      // Step 3: Complete the upload
-      const completeResponse = await fetch("/api/upload/video/complete", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          uploadId,
-          fileName,
-          fileSize: file.size,
-          mimeType: file.type,
-          title,
-          description,
-        }),
-      })
-
-      if (!completeResponse.ok) {
-        const errorData = await completeResponse.json()
-        throw new Error(errorData.error || "Failed to complete upload")
-      }
-
-      const completeData = await completeResponse.json()
-
-      toast({
-        title: "Video uploaded successfully",
-        description: "Your video has been uploaded and is now available",
-      })
-
-      // Fetch the updated video
-      await fetchCurrentVideo()
-
-      return completeData
-    } catch (error) {
-      console.error("Error uploading video:", error)
-      setError(error instanceof Error ? error.message : "An unknown error occurred")
-      throw error
-    } finally {
-      setUploading(false)
-    }
-  }
-
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return
 
     const file = e.target.files[0]
 
-    // Check file size (max 600MB)
-    if (file.size > 600 * 1024 * 1024) {
+    // Check file size (max 100MB for direct upload)
+    if (file.size > 100 * 1024 * 1024) {
       toast({
         title: "File too large",
-        description: "Maximum file size is 600MB",
+        description: "Maximum file size is 100MB for direct upload",
         variant: "destructive",
       })
       return
@@ -210,15 +107,64 @@ export default function VideoUploader() {
       return
     }
 
+    setUploading(true)
+    setProgress(0)
+    setError(null)
+
     try {
-      await uploadVideoInChunks(file)
+      // Create a FormData object
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("title", title)
+      formData.append("description", description)
+
+      // Use XMLHttpRequest to track upload progress
+      const xhr = new XMLHttpRequest()
+
+      // Track upload progress
+      xhr.upload.addEventListener("progress", (event) => {
+        if (event.lengthComputable) {
+          const percentComplete = Math.round((event.loaded / event.total) * 100)
+          setProgress(percentComplete)
+        }
+      })
+
+      // Set up completion handler
+      xhr.onload = async () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          const response = JSON.parse(xhr.responseText)
+
+          if (response.success) {
+            toast({
+              title: "Video uploaded successfully",
+              description: "Your video has been uploaded and is now available",
+            })
+
+            // Fetch the updated video
+            await fetchCurrentVideo()
+          } else {
+            throw new Error(response.error || "Upload failed")
+          }
+        } else {
+          throw new Error(`Server responded with status: ${xhr.status}`)
+        }
+
+        setUploading(false)
+      }
+
+      // Set up error handler
+      xhr.onerror = () => {
+        setError("Network error occurred during upload")
+        setUploading(false)
+      }
+
+      // Open and send the request
+      xhr.open("POST", "/api/upload/video/direct", true)
+      xhr.send(formData)
     } catch (error) {
       console.error("Error uploading video:", error)
-      toast({
-        title: "Upload failed",
-        description: error instanceof Error ? error.message : "An unknown error occurred",
-        variant: "destructive",
-      })
+      setError(error instanceof Error ? error.message : "An unknown error occurred")
+      setUploading(false)
     }
   }
 
@@ -363,7 +309,7 @@ export default function VideoUploader() {
             {uploading ? "Uploading..." : "Select Video File"}
           </Button>
 
-          <p className="text-sm text-muted-foreground">Maximum file size: 600MB. Supported formats: MP4, WebM, MOV.</p>
+          <p className="text-sm text-muted-foreground">Maximum file size: 100MB. Supported formats: MP4, WebM, MOV.</p>
 
           {uploading && (
             <div className="space-y-2">

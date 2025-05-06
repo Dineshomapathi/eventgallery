@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import PhotoUploader from "@/components/photo-uploader"
+import VideoUploader from "@/components/video-uploader"
 import AdminGalleryView from "./gallery-view"
 import {
   Dialog,
@@ -298,8 +299,9 @@ export default function AdminPage() {
       </div>
 
       <Tabs defaultValue="photos">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="photos">Photo Upload</TabsTrigger>
+          <TabsTrigger value="video">Video Upload</TabsTrigger>
           <TabsTrigger value="gallery">Manage Gallery</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
           <TabsTrigger value="downloads">Download Settings</TabsTrigger>
@@ -382,6 +384,18 @@ export default function AdminPage() {
                   </div>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="video">
+          <Card>
+            <CardHeader>
+              <CardTitle>Upload Event Video</CardTitle>
+              <CardDescription>Upload a video to be displayed on the main page</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <VideoUploader />
             </CardContent>
           </Card>
         </TabsContent>

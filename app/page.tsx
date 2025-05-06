@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import TimeBlock from "@/components/time-block"
 import Gallery from "@/components/gallery"
 import EventSelector from "@/components/event-selector"
-import VideoPlayer from "@/components/video-player"
 import { useToast } from "@/hooks/use-toast"
 import { useMobile } from "@/hooks/use-mobile"
 import Image from "next/image"
@@ -20,9 +19,6 @@ export default function EventGallery() {
   const [restrictionsDisabled, setRestrictionsDisabled] = useState<boolean>(false)
   const [totalDayPhotos, setTotalDayPhotos] = useState<number>(0)
   const [isDownloadingDay, setIsDownloadingDay] = useState(false)
-  const [videoUrl, setVideoUrl] = useState<string | null>(null)
-  const [videoLoading, setVideoLoading] = useState(true)
-  const [videoError, setVideoError] = useState<string | null>(null)
   const { toast } = useToast()
   const isMobile = useMobile()
 
@@ -33,54 +29,6 @@ export default function EventGallery() {
   useEffect(() => {
     fetchSettings()
   }, [fetchSettings])
-
-  // Fetch video URL
-  useEffect(() => {
-    const fetchVideo = async () => {
-      try {
-        setVideoLoading(true)
-        setVideoError(null)
-
-        const response = await fetch("/api/video", {
-          // Add cache control headers to prevent caching
-          headers: {
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            Pragma: "no-cache",
-            Expires: "0",
-          },
-        })
-
-        if (!response.ok) {
-          console.error("Video API returned error:", response.status, response.statusText)
-          setVideoError("Failed to load video. Please try again later.")
-          return
-        }
-
-        const data = await response.json()
-
-        if (data.error) {
-          console.error("Video API returned error:", data.error)
-          setVideoError(data.error)
-          return
-        }
-
-        // Only set the video URL if one was returned
-        if (data.videoUrl) {
-          setVideoUrl(data.videoUrl)
-        } else {
-          // No video available, but not an error
-          console.log("No videos available yet")
-        }
-      } catch (error) {
-        console.error("Error fetching video:", error)
-        setVideoError(error instanceof Error ? error.message : "Failed to fetch video")
-      } finally {
-        setVideoLoading(false)
-      }
-    }
-
-    fetchVideo()
-  }, [])
 
   // Time blocks from 8am to 6pm in 2-hour increments
   const timeBlocks = [
@@ -315,13 +263,6 @@ export default function EventGallery() {
             {/* Event selection */}
             {!selectedEvent && (
               <>
-                {/* Video Player - only show if we have a video URL and no error */}
-                {!videoLoading && videoUrl && !videoError && (
-                  <div className="mb-6">
-                    <VideoPlayer src={videoUrl} poster="/images/video-poster.jpg" className="aspect-video shadow-lg" />
-                  </div>
-                )}
-
                 <h2 className="text-xl font-bold mb-4 text-center text-white bg-teal-800/70 backdrop-blur-sm py-2 rounded-lg">
                   Select an Event
                 </h2>

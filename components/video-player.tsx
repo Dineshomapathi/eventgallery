@@ -9,28 +9,10 @@ interface VideoPlayerProps {
   className?: string
 }
 
-export default function VideoPlayer({ src, poster = "", className = "" }: VideoPlayerProps) {
+export default function VideoPlayer({ src, poster = "/images/video-poster.jpg", className = "" }: VideoPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
-
-  const togglePlay = () => {
-    if (videoRef.current) {
-      if (isPlaying) {
-        videoRef.current.pause()
-      } else {
-        videoRef.current.play()
-      }
-      setIsPlaying(!isPlaying)
-    }
-  }
-
-  const toggleMute = () => {
-    if (videoRef.current) {
-      videoRef.current.muted = !isMuted
-      setIsMuted(!isMuted)
-    }
-  }
 
   useEffect(() => {
     const video = videoRef.current
@@ -51,32 +33,42 @@ export default function VideoPlayer({ src, poster = "", className = "" }: VideoP
     }
   }, [])
 
-  return (
-    <div className={`relative group ${className}`}>
-      <video
-        ref={videoRef}
-        src={src}
-        poster={poster}
-        className="w-full h-auto rounded-lg shadow-lg"
-        playsInline
-        preload="metadata"
-      />
+  const togglePlay = () => {
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.pause()
+      } else {
+        videoRef.current.play()
+      }
+    }
+  }
 
-      <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex justify-between items-center">
+  const toggleMute = () => {
+    if (videoRef.current) {
+      videoRef.current.muted = !isMuted
+      setIsMuted(!isMuted)
+    }
+  }
+
+  return (
+    <div className={`relative rounded-lg overflow-hidden bg-black ${className}`}>
+      <video ref={videoRef} src={src} poster={poster} className="w-full h-auto" playsInline preload="metadata" />
+
+      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4 flex items-center justify-between">
         <button
           onClick={togglePlay}
-          className="bg-white/20 backdrop-blur-sm p-2 rounded-full hover:bg-white/30 transition-colors"
+          className="text-white hover:text-blue-300 transition-colors"
           aria-label={isPlaying ? "Pause video" : "Play video"}
         >
-          {isPlaying ? <Pause size={20} className="text-white" /> : <Play size={20} className="text-white" />}
+          {isPlaying ? <Pause className="h-6 w-6" /> : <Play className="h-6 w-6" />}
         </button>
 
         <button
           onClick={toggleMute}
-          className="bg-white/20 backdrop-blur-sm p-2 rounded-full hover:bg-white/30 transition-colors"
+          className="text-white hover:text-blue-300 transition-colors"
           aria-label={isMuted ? "Unmute video" : "Mute video"}
         >
-          {isMuted ? <VolumeX size={20} className="text-white" /> : <Volume2 size={20} className="text-white" />}
+          {isMuted ? <VolumeX className="h-6 w-6" /> : <Volume2 className="h-6 w-6" />}
         </button>
       </div>
     </div>

@@ -3,88 +3,65 @@ import { supabase } from "@/lib/supabase"
 
 export async function POST() {
   try {
-    // First, check if the settings table exists
-    const { error: checkTableError } = await supabase.query(`
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_schema = 'public'
-        AND table_name = 'settings'
-      );
-    `)
+    // Check if settings table exists
+    const { data: tableExists, error: tableCheckError } = await supabase.from("settings").select("id").limit(1)
 
-    if (checkTableError) {
-      console.error("Error checking if settings table exists:", checkTableError)
+    if (tableCheckError) {
+      // If table doesn't exist, create it
+      if (tableCheckError.message.includes("relation") && tableCheckError.message.includes("does not exist")) {
+        const { error: createTableError } = await supabase.rpc("create_settings_table")
 
-      // Create the settings table if it doesn't exist
-      const { error: createTableError } = await supabase.query(`
-        CREATE TABLE IF NOT EXISTS settings (
-          id TEXT PRIMARY KEY,
-          downloads_enabled BOOLEAN DEFAULT false,
-          last_day_only BOOLEAN DEFAULT true,
-          last_event_day TEXT DEFAULT '2025-04-25',
-          video_url TEXT,
-          video_path TEXT,
-          video_title TEXT,
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        );
-      `)
+        if (createTableError) {
+          // If RPC fails, try direct SQL
+          const { error: directSqlError } = await supabase.query(`
+            CREATE TABLE IF NOT EXISTS settings (
+              id TEXT PRIMARY KEY,
+              created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+              updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+              downloads_enabled BOOLEAN DEFAULT FALSE,
+              last_day_only BOOLEAN DEFAULT FALSE,
+              last_event_day DATE DEFAULT NULL
+            )
+          `)
 
-      if (createTableError) {
-        console.error("Error creating settings table:", createTableError)
-        return NextResponse.json({ success: false, error: "Failed to create settings table" }, { status: 500 })
+          if (directSqlError) {
+            throw new Error(`Failed to create settings table: ${directSqlError.message}`)
+          }
+
+          // Insert default record
+          await supabase.from("settings").insert({ id: "global" }).select()
+        }
+      } else {
+        throw new Error(`Error checking settings table: ${tableCheckError.message}`)
       }
     }
 
-    // Add video columns to settings table if they don't exist
-    const { error: alterTableError } = await supabase.query(`
-      DO $$
-      BEGIN
-        BEGIN
-          ALTER TABLE settings ADD COLUMN IF NOT EXISTS video_url TEXT;
-        EXCEPTION WHEN OTHERS THEN
-          -- Column might already exist
-        END;
-        
-        BEGIN
-          ALTER TABLE settings ADD COLUMN IF NOT EXISTS video_path TEXT;
-        EXCEPTION WHEN OTHERS THEN
-          -- Column might already exist
-        END;
-        
-        BEGIN
-          ALTER TABLE settings ADD COLUMN IF NOT EXISTS video_title TEXT;
-        EXCEPTION WHEN OTHERS THEN
-          -- Column might already exist
-        END;
-      END $$;
+    // Check if video_url column exists
+    const { data: columnData, error: columnError } = await supabase.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'settings' AND column_name = 'video_url'
     `)
 
-    if (alterTableError) {
-      console.error("Error adding video columns to settings table:", alterTableError)
-      return NextResponse.json({ success: false, error: "Failed to add video columns" }, { status: 500 })
-    }
+    // If column doesn't exist or there was an error, add the column
+    if (columnError || (columnData && columnData.length === 0)) {
+      const { error: addColumnError } = await supabase.query(`
+        ALTER TABLE settings 
+        ADD COLUMN IF NOT EXISTS video_url TEXT,
+        ADD COLUMN IF NOT EXISTS video_title TEXT
+      `)
 
-    // Insert default settings if they don't exist
-    const { error: insertError } = await supabase.from("settings").upsert(
-      {
-        id: "global",
-        downloads_enabled: false,
-        last_day_only: true,
-        last_event_day: "2025-04-25",
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "id" },
-    )
-
-    if (insertError) {
-      console.error("Error inserting default settings:", insertError)
-      return NextResponse.json({ success: false, error: "Failed to insert default settings" }, { status: 500 })
+      if (addColumnError) {
+        throw new Error(`Failed to add video columns: ${addColumnError.message}`)
+      }
     }
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Error in create-video-fields:", error)
-    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
+    console.error("Error creating video fields:", error)
+    return NextResponse.json(
+      { error: "Failed to create video fields", details: error instanceof Error ? error.message : String(error) },
+      { status: 500 },
+    )
   }
 }

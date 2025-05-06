@@ -26,6 +26,7 @@ import { AlertTriangle } from "lucide-react"
 import { compressImage } from "@/lib/image-compression"
 import { useSettingsStore } from "@/lib/settings-store"
 import { Info } from "lucide-react"
+import VideoUpload from "./video-upload"
 
 export default function AdminPage() {
   const [uploading, setUploading] = useState(false)
@@ -298,8 +299,9 @@ export default function AdminPage() {
       </div>
 
       <Tabs defaultValue="photos">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="photos">Photo Upload</TabsTrigger>
+          <TabsTrigger value="video">Video Upload</TabsTrigger>
           <TabsTrigger value="gallery">Manage Gallery</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
           <TabsTrigger value="downloads">Download Settings</TabsTrigger>
@@ -384,6 +386,10 @@ export default function AdminPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="video">
+          <VideoUpload />
         </TabsContent>
 
         <TabsContent value="gallery">

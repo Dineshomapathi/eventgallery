@@ -1,68 +1,87 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { supabase } from "@/lib/supabase"
-import { createBucketIfNotExists } from "@/lib/supabase-storage"
-import { updateVideoSettings } from "@/lib/server-settings"
 
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-  maxDuration: 300, // 5 minutes for large uploads
-}
-
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
-    // Create videos bucket if it doesn't exist
-    const bucketCreated = await createBucketIfNotExists("videos", true)
-    if (!bucketCreated) {
-      return NextResponse.json({ success: false, error: "Failed to create videos bucket" }, { status: 500 })
-    }
+    // First, ensure the video fields exist in the settings table
+    await fetch(new URL("/api/create-video-fields", request.url), {
+      method: "POST",
+    })
 
-    // Get form data
+    // Get the form data from the request
     const formData = await request.formData()
     const file = formData.get("file") as File
     const title = (formData.get("title") as string) || "Event Video"
 
     if (!file) {
-      return NextResponse.json({ success: false, error: "No file provided" }, { status: 400 })
+      return NextResponse.json({ error: "No file provided" }, { status: 400 })
     }
 
-    // Generate a unique filename
-    const timestamp = new Date().getTime()
-    const fileExt = file.name.split(".").pop()
-    const fileName = `event-video-${timestamp}.${fileExt}`
-    const filePath = `${fileName}`
+    // Check if file is a video
+    if (!file.type.startsWith("video/")) {
+      return NextResponse.json({ error: "File is not a video" }, { status: 400 })
+    }
 
-    // Upload to Supabase Storage
-    const { error: uploadError, data: uploadData } = await supabase.storage.from("videos").upload(filePath, file, {
+    // Create videos bucket if it doesn't exist
+    const { data: buckets } = await supabase.storage.listBuckets()
+    const videosBucketExists = buckets?.some((bucket) => bucket.name === "videos")
+
+    if (!videosBucketExists) {
+      const { error: createBucketError } = await supabase.storage.createBucket("videos", {
+        public: true,
+        fileSizeLimit: 600 * 1024 * 1024, // 600MB limit
+      })
+
+      if (createBucketError) {
+        throw new Error(`Failed to create videos bucket: ${createBucketError.message}`)
+      }
+    }
+
+    // Upload the video to Supabase storage
+    const fileName = `event-video-${Date.now()}.mp4`
+    const { data: uploadData, error: uploadError } = await supabase.storage.from("videos").upload(fileName, file, {
       cacheControl: "3600",
       upsert: true,
     })
 
     if (uploadError) {
-      console.error("Error uploading video:", uploadError)
-      return NextResponse.json({ success: false, error: "Failed to upload video" }, { status: 500 })
+      throw new Error(`Failed to upload video: ${uploadError.message}`)
     }
 
-    // Get public URL
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from("videos").getPublicUrl(filePath)
+    // Get the public URL for the uploaded video
+    const { data: publicUrlData } = supabase.storage.from("videos").getPublicUrl(fileName)
 
-    // Update settings with video URL
-    const updated = await updateVideoSettings(publicUrl, filePath, title)
-    if (!updated) {
-      return NextResponse.json({ success: false, error: "Failed to update settings" }, { status: 500 })
+    const videoUrl = publicUrlData.publicUrl
+
+    // Update the settings table with the new video URL
+    const { error: updateError } = await supabase
+      .from("settings")
+      .update({
+        video_url: videoUrl,
+        video_title: title,
+      })
+      .eq("id", "global")
+
+    if (updateError) {
+      throw new Error(`Failed to update settings: ${updateError.message}`)
     }
 
     return NextResponse.json({
       success: true,
-      videoUrl: publicUrl,
-      videoPath: filePath,
-      videoTitle: title,
+      videoUrl,
+      title,
     })
   } catch (error) {
-    console.error("Error in video upload:", error)
-    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
+    console.error("Error uploading video:", error)
+    return NextResponse.json(
+      { error: "Failed to upload video", details: error instanceof Error ? error.message : String(error) },
+      { status: 500 },
+    )
   }
+}
+
+export const config = {
+  api: {
+    bodyParser: false,
+  },
 }

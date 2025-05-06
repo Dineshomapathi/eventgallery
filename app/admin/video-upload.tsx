@@ -2,233 +2,406 @@
 
 import type React from "react"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { AlertCircle, Upload, X } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { useToast } from "@/hooks/use-toast"
+import { Loader2, Upload, AlertTriangle, Info, RefreshCw } from "lucide-react"
 import VideoPlayer from "@/components/video-player"
 
 export default function VideoUpload() {
+  const [uploading, setUploading] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [title, setTitle] = useState("Event Video")
-  const [uploading, setUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const [videoUrl, setVideoUrl] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [progress, setProgress] = useState(0)
+  const [fileSizeWarning, setFileSizeWarning] = useState<string | null>(null)
+  const [currentVideo, setCurrentVideo] = useState<{ url: string; title: string } | null>(null)
+  const [loadingCurrentVideo, setLoadingCurrentVideo] = useState(true)
+  const [setupError, setSetupError] = useState<string | null>(null)
+  const [isSettingUp, setIsSettingUp] = useState(false)
+  const progressRef = useRef(0)
   const { toast } = useToast()
 
-  // Fetch current video on mount
-  useState(() => {
-    const fetchVideo = async () => {
-      try {
-        const response = await fetch("/api/video")
-        const data = await response.json()
+  // Function to set up video fields
+  const setupVideoFields = async () => {
+    try {
+      setIsSettingUp(true)
+      setSetupError(null)
 
-        if (data.videoUrl) {
-          setVideoUrl(data.videoUrl)
-        }
-        if (data.videoTitle) {
-          setTitle(data.videoTitle)
-        }
-      } catch (error) {
-        console.error("Error fetching video:", error)
+      // First, ensure the video fields exist in the settings table
+      const setupResponse = await fetch("/api/create-video-fields", {
+        method: "POST",
+      })
+
+      if (!setupResponse.ok) {
+        console.error("Failed to set up video fields")
+        throw new Error("Failed to set up video fields")
       }
-    }
 
-    fetchVideo()
+      // Then fetch the current video
+      await fetchCurrentVideo()
+
+      toast({
+        title: "Setup complete",
+        description: "Video functionality is now ready to use",
+      })
+    } catch (error) {
+      console.error("Error setting up video functionality:", error)
+      setSetupError("Failed to set up video functionality. Please try again.")
+    } finally {
+      setIsSettingUp(false)
+    }
+  }
+
+  // Function to fetch current video
+  const fetchCurrentVideo = async () => {
+    try {
+      setLoadingCurrentVideo(true)
+
+      // Try to get video info from the API
+      const response = await fetch("/api/video", {
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      })
+
+      if (!response.ok) {
+        console.error("Error fetching video:", response.status, response.statusText)
+        throw new Error("Failed to fetch video information")
+      }
+
+      const data = await response.json()
+
+      if (data.videoUrl) {
+        setCurrentVideo({
+          url: data.videoUrl,
+          title: data.title || "Event Video",
+        })
+      } else {
+        setCurrentVideo(null)
+      }
+    } catch (error) {
+      console.error("Error fetching current video:", error)
+      // Don't set error, just log it
+    } finally {
+      setLoadingCurrentVideo(false)
+    }
+  }
+
+  // Fetch current video information on component mount
+  useEffect(() => {
+    setupVideoFields()
   }, [])
 
+  // Update progress display
+  const updateProgress = () => {
+    if (progressRef.current !== progress) {
+      setProgress(progressRef.current)
+      requestAnimationFrame(updateProgress)
+    }
+  }
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0]
-    if (selectedFile) {
-      // Check if file is a video
-      if (!selectedFile.type.startsWith("video/")) {
-        toast({
-          title: "Invalid file type",
-          description: "Please select a video file",
-          variant: "destructive",
-        })
-        return
-      }
+    if (!e.target.files || e.target.files.length === 0) {
+      setFile(null)
+      setFileSizeWarning(null)
+      return
+    }
 
-      setFile(selectedFile)
+    const selectedFile = e.target.files[0]
+    setFile(selectedFile)
+
+    // Check file size and show warning if it's large
+    const fileSizeMB = selectedFile.size / 1024 / 1024
+    if (fileSizeMB > 600) {
+      setFileSizeWarning(`File size (${fileSizeMB.toFixed(2)}MB) exceeds the 600MB limit.`)
+    } else if (fileSizeMB > 200) {
+      setFileSizeWarning(`Large file (${fileSizeMB.toFixed(2)}MB). Upload may take a while and could time out.`)
+    } else {
+      setFileSizeWarning(null)
     }
   }
 
-  const clearFile = () => {
-    setFile(null)
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ""
+  const handleUpload = async () => {
+    if (!file) {
+      toast({
+        title: "No file selected",
+        description: "Please select a video file to upload",
+        variant: "destructive",
+      })
+      return
     }
-  }
 
-  const uploadVideo = async () => {
-    if (!file) return
+    if (!title.trim()) {
+      toast({
+        title: "Title required",
+        description: "Please enter a title for the video",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Check file size
+    const fileSizeMB = file.size / 1024 / 1024
+    if (fileSizeMB > 600) {
+      toast({
+        title: "File too large",
+        description: "Maximum file size is 600MB. Please select a smaller file.",
+        variant: "destructive",
+      })
+      return
+    }
 
     setUploading(true)
-    setUploadProgress(0)
+    progressRef.current = 0
+    setProgress(0)
+    requestAnimationFrame(updateProgress)
 
     try {
-      // First, ensure the videos table and settings columns exist
-      await fetch("/api/create-videos-table", { method: "POST" })
-
-      // Create form data
       const formData = new FormData()
       formData.append("file", file)
       formData.append("title", title)
 
       // Use XMLHttpRequest to track upload progress
       const xhr = new XMLHttpRequest()
+      xhr.open("POST", "/api/upload/video")
 
-      xhr.upload.addEventListener("progress", (event) => {
+      xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
-          const progress = Math.round((event.loaded / event.total) * 100)
-          setUploadProgress(progress)
+          progressRef.current = Math.round((event.loaded / event.total) * 100)
         }
-      })
+      }
 
-      xhr.addEventListener("load", async () => {
+      xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
           const response = JSON.parse(xhr.responseText)
 
           if (response.success) {
-            setVideoUrl(response.videoUrl)
             toast({
               title: "Upload complete",
               description: "Video has been uploaded successfully",
             })
-          } else {
-            toast({
-              title: "Upload failed",
-              description: response.error || "An error occurred during upload",
-              variant: "destructive",
+
+            // Update current video
+            setCurrentVideo({
+              url: response.videoUrl,
+              title: response.title,
             })
+
+            // Reset form
+            setFile(null)
+            setTitle("")
+            setFileSizeWarning(null)
+
+            // Reset file input
+            const fileInput = document.getElementById("video-file") as HTMLInputElement
+            if (fileInput) fileInput.value = ""
+          } else {
+            throw new Error(response.error || "Failed to upload video")
           }
         } else {
-          toast({
-            title: "Upload failed",
-            description: `Server returned status code ${xhr.status}`,
-            variant: "destructive",
-          })
+          throw new Error(`HTTP Error: ${xhr.status}`)
         }
-
         setUploading(false)
-      })
+      }
 
-      xhr.addEventListener("error", () => {
+      xhr.onerror = () => {
         toast({
           title: "Upload failed",
-          description: "Network error occurred",
+          description: "There was a network error during upload",
           variant: "destructive",
         })
         setUploading(false)
-      })
+      }
 
-      xhr.addEventListener("abort", () => {
-        toast({
-          title: "Upload cancelled",
-          description: "The upload was cancelled",
-          variant: "destructive",
-        })
-        setUploading(false)
-      })
-
-      xhr.open("POST", "/api/upload/video")
       xhr.send(formData)
     } catch (error) {
       console.error("Error uploading video:", error)
       toast({
         title: "Upload failed",
-        description: "An error occurred during upload",
+        description: error instanceof Error ? error.message : "An unknown error occurred",
         variant: "destructive",
       })
       setUploading(false)
     }
   }
 
+  // Calculate estimated upload time based on file size
+  const getEstimatedUploadTime = () => {
+    if (!file) return null
+
+    const fileSizeMB = file.size / 1024 / 1024
+    // Assume average upload speed of 1MB/s (conservative estimate)
+    const estimatedMinutes = Math.ceil(fileSizeMB / 60)
+
+    return estimatedMinutes > 1
+      ? `Estimated upload time: ~${estimatedMinutes} minutes`
+      : "Estimated upload time: Less than a minute"
+  }
+
   return (
-    <Card className="w-full">
+    <Card>
       <CardHeader>
-        <CardTitle>Video Management</CardTitle>
-        <CardDescription>Upload a video to display on the event gallery homepage</CardDescription>
+        <CardTitle>Upload Event Video</CardTitle>
+        <CardDescription>
+          Upload a video to be displayed on the homepage. The video will replace any previously uploaded video.
+        </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {videoUrl && (
-          <div className="mb-6">
-            <h3 className="text-sm font-medium mb-2">Current Video</h3>
-            <VideoPlayer src={videoUrl} poster="/images/video-poster.jpg" className="aspect-video" />
+      <CardContent>
+        {loadingCurrentVideo ? (
+          <div className="flex items-center justify-center p-4">
+            <Loader2 className="w-6 h-6 text-blue-500 animate-spin mr-2" />
+            <p>Checking current video status...</p>
           </div>
-        )}
-
-        <div className="space-y-2">
-          <Label htmlFor="title">Video Title</Label>
-          <Input
-            id="title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Enter video title"
-            disabled={uploading}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="video">Video File</Label>
-          <div className="flex items-center gap-2">
-            <Input
-              ref={fileInputRef}
-              id="video"
-              type="file"
-              accept="video/*"
-              onChange={handleFileChange}
-              className="hidden"
-              disabled={uploading}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="w-full h-24 border-dashed flex flex-col items-center justify-center gap-2"
-            >
-              <Upload size={24} />
-              <span>{file ? file.name : "Click to select video file"}</span>
-            </Button>
-            {file && (
-              <Button type="button" variant="ghost" size="icon" onClick={clearFile} disabled={uploading}>
-                <X size={20} />
-              </Button>
-            )}
-          </div>
-          {file && <p className="text-sm text-muted-foreground mt-1">{(file.size / (1024 * 1024)).toFixed(2)} MB</p>}
-        </div>
-
-        {uploading && (
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>Uploading...</span>
-              <span>{uploadProgress}%</span>
+        ) : setupError ? (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
+            <div className="flex items-start">
+              <AlertTriangle className="h-5 w-5 text-red-500 mr-2 mt-0.5" />
+              <div>
+                <h3 className="text-sm font-medium text-red-800">Error</h3>
+                <p className="text-sm text-red-700 mt-1">{setupError}</p>
+                <Button variant="outline" size="sm" className="mt-2" onClick={setupVideoFields} disabled={isSettingUp}>
+                  {isSettingUp ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Setting up...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Try Again
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
-            <Progress value={uploadProgress} className="h-2" />
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Current Video Status */}
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+              <div className="flex items-start">
+                <Info className="h-5 w-5 text-blue-500 mr-2 mt-0.5" />
+                <div>
+                  <h3 className="text-sm font-medium text-blue-800">Current Video Status</h3>
+                  {currentVideo ? (
+                    <div className="text-sm text-blue-700 mt-1">
+                      <p>
+                        <strong>Title:</strong> {currentVideo.title}
+                      </p>
+                      <p className="mt-1">
+                        <strong>URL:</strong>{" "}
+                        <a href={currentVideo.url} target="_blank" rel="noopener noreferrer" className="underline">
+                          {currentVideo.url.substring(0, 50)}...
+                        </a>
+                      </p>
+                      <div className="mt-2 max-w-md">
+                        <VideoPlayer src={currentVideo.url} poster="/images/video-poster.jpg" />
+                      </div>
+                      <p className="mt-2">Uploading a new video will replace this one.</p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-blue-700 mt-1">No video has been uploaded yet.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Upload Form */}
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="video-title">Video Title</Label>
+                <Input
+                  id="video-title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Enter a title for the video"
+                  disabled={uploading}
+                  className="mt-1"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="video-file">Video File</Label>
+                <Input
+                  id="video-file"
+                  type="file"
+                  accept="video/mp4,video/webm,video/ogg"
+                  onChange={handleFileChange}
+                  disabled={uploading}
+                  className="mt-1"
+                />
+                <p className="text-sm text-muted-foreground mt-1">
+                  Supported formats: MP4, WebM, Ogg. Maximum size: 600MB.
+                </p>
+              </div>
+
+              {fileSizeWarning && (
+                <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
+                  <div className="flex items-start">
+                    <AlertTriangle className="h-4 w-4 text-amber-500 mr-2 mt-0.5" />
+                    <p className="text-sm text-amber-700">{fileSizeWarning}</p>
+                  </div>
+                </div>
+              )}
+
+              {file && (
+                <div className="text-sm">
+                  <p>Selected file: {file.name}</p>
+                  <p>Size: {(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                  {file.size > 50 * 1024 * 1024 && <p className="text-muted-foreground">{getEstimatedUploadTime()}</p>}
+                </div>
+              )}
+
+              {uploading && (
+                <div className="space-y-2">
+                  <Progress value={progress} className="h-2" />
+                  <p className="text-sm text-center">{progress}% uploaded</p>
+                  {progress > 0 && progress < 100 && (
+                    <p className="text-xs text-center text-muted-foreground">
+                      Please keep this window open until the upload completes
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <Button onClick={handleUpload} disabled={uploading || !file} className="w-full">
+                {uploading ? (
+                  <>
+                    <Loader2 size={16} className="mr-2 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload size={16} className="mr-2" />
+                    Upload Video
+                  </>
+                )}
+              </Button>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mt-4">
+                <div className="flex items-start">
+                  <AlertTriangle className="h-5 w-5 text-blue-500 mr-2 mt-0.5" />
+                  <div>
+                    <h3 className="text-sm font-medium text-blue-800">Tips for Large Videos</h3>
+                    <ul className="text-sm text-blue-700 mt-1 list-disc pl-5">
+                      <li>For videos larger than 200MB, consider compressing them first</li>
+                      <li>Keep this browser tab open during the entire upload process</li>
+                      <li>Ensure you have a stable internet connection</li>
+                      <li>If upload fails, try breaking the video into smaller segments</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
-
-        <div className="bg-amber-50 border border-amber-200 rounded-md p-3 flex items-start gap-2">
-          <AlertCircle size={18} className="text-amber-500 mt-0.5" />
-          <div className="text-sm text-amber-800">
-            <p className="font-medium">Important</p>
-            <p>Large video files (like 560MB) may take a long time to upload. Make sure your connection is stable.</p>
-          </div>
-        </div>
       </CardContent>
-      <CardFooter>
-        <Button onClick={uploadVideo} disabled={!file || uploading} className="w-full">
-          {uploading ? "Uploading..." : "Upload Video"}
-        </Button>
-      </CardFooter>
     </Card>
   )
 }

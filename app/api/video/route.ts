@@ -1,16 +1,29 @@
 import { NextResponse } from "next/server"
-import { getSettings } from "@/lib/server-settings"
+import { supabase } from "@/lib/supabase"
 
 export async function GET() {
   try {
-    const settings = await getSettings()
+    // Try to get the video URL from the settings table
+    const { data, error } = await supabase.from("settings").select("video_url, video_title").eq("id", "global").single()
 
+    if (error) {
+      console.error("Error fetching video from settings:", error)
+
+      // If the error is because the column doesn't exist, return empty response
+      if (error.message.includes("column") && error.message.includes("does not exist")) {
+        return NextResponse.json({ videoUrl: null, title: null })
+      }
+
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Return the video URL if it exists
     return NextResponse.json({
-      videoUrl: settings.videoUrl || null,
-      videoTitle: settings.videoTitle || null,
+      videoUrl: data?.video_url || null,
+      title: data?.video_title || "Event Video",
     })
   } catch (error) {
-    console.error("Error fetching video:", error)
-    return NextResponse.json({ error: "Failed to fetch video" }, { status: 500 })
+    console.error("Error in video API:", error)
+    return NextResponse.json({ error: "Failed to fetch video information" }, { status: 500 })
   }
 }

@@ -2,8 +2,9 @@
 const nextConfig = {
   api: {
     bodyParser: {
-      sizeLimit: '50mb', // Increase from default 4mb to 50mb
+      sizeLimit: '600mb', // Increase from 50mb to 600mb for large video uploads
     },
+    responseLimit: '600mb', // Also increase the response limit
   },
   eslint: {
     ignoreDuringBuilds: true,

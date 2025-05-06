@@ -69,7 +69,8 @@
     "@vercel/blob": "latest",
     "@vercel/analytics": "latest",
     "jszip": "latest",
-    "zustand": "latest"
+    "zustand": "latest",
+    "uuid": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

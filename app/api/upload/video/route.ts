@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { revalidatePath } from "next/cache"
 import { uploadToSupabaseStorage, deleteFromSupabaseStorage } from "@/lib/supabase-storage"
-import { getSettings, updateVideoSettings } from "@/lib/server-settings"
+import { supabase } from "@/lib/supabase"
 
 // Increase the body parser size limit for video uploads
 export const config = {
@@ -42,12 +42,21 @@ export async function POST(request: Request) {
 
     try {
       // Get current settings to check if we need to delete an existing video
-      const currentSettings = await getSettings()
+      const { data: currentSettings, error: settingsError } = await supabase
+        .from("settings")
+        .select("video_path")
+        .eq("id", "global")
+        .single()
+
+      // If there's an error but it's not "no rows found", throw it
+      if (settingsError && !settingsError.message.includes("No rows found")) {
+        throw new Error(`Failed to get current settings: ${settingsError.message}`)
+      }
 
       // If there's an existing video, delete it from storage
-      if (currentSettings.videoPath) {
-        console.log("Deleting existing video:", currentSettings.videoPath)
-        await deleteFromSupabaseStorage(currentSettings.videoPath)
+      if (currentSettings?.video_path) {
+        console.log("Deleting existing video:", currentSettings.video_path)
+        await deleteFromSupabaseStorage(currentSettings.video_path)
       }
 
       // Upload the new video to Supabase Storage
@@ -57,10 +66,16 @@ export async function POST(request: Request) {
 
       // Update settings with the new video information
       console.log("Updating settings with new video information...")
-      const success = await updateVideoSettings(url, path, title)
+      const { error: upsertError } = await supabase.from("settings").upsert({
+        id: "global",
+        video_url: url,
+        video_path: path,
+        video_title: title,
+        updated_at: new Date().toISOString(),
+      })
 
-      if (!success) {
-        throw new Error("Failed to update settings with video information")
+      if (upsertError) {
+        throw new Error(`Failed to update settings: ${upsertError.message}`)
       }
 
       console.log("Video settings updated successfully")

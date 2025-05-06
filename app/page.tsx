@@ -41,7 +41,21 @@ export default function EventGallery() {
         setVideoLoading(true)
         setVideoError(null)
 
-        const response = await fetch("/api/video")
+        const response = await fetch("/api/video", {
+          // Add cache control headers to prevent caching
+          headers: {
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            Pragma: "no-cache",
+            Expires: "0",
+          },
+        })
+
+        if (!response.ok) {
+          console.error("Video API returned error:", response.status, response.statusText)
+          setVideoError("Failed to load video. Please try again later.")
+          return
+        }
+
         const data = await response.json()
 
         if (data.error) {

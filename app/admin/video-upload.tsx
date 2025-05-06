@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2, Upload, AlertTriangle, Info } from "lucide-react"
+import { supabase } from "@/lib/supabase"
 
 export default function VideoUpload() {
   const [uploading, setUploading] = useState(false)
@@ -19,6 +20,7 @@ export default function VideoUpload() {
   const [fileSizeWarning, setFileSizeWarning] = useState<string | null>(null)
   const [currentVideo, setCurrentVideo] = useState<{ url: string; title: string } | null>(null)
   const [loadingCurrentVideo, setLoadingCurrentVideo] = useState(true)
+  const [setupError, setSetupError] = useState<string | null>(null)
   const progressRef = useRef(0)
   const { toast } = useToast()
 
@@ -27,30 +29,46 @@ export default function VideoUpload() {
     const setupVideoFields = async () => {
       try {
         setLoadingCurrentVideo(true)
+        setSetupError(null)
 
         // First, ensure the video fields exist in the settings table
-        const setupResponse = await fetch("/api/create-video-fields", {
-          method: "POST",
-        })
+        try {
+          const setupResponse = await fetch("/api/create-video-fields", {
+            method: "POST",
+          })
 
-        if (!setupResponse.ok) {
-          console.error("Failed to set up video fields")
+          if (!setupResponse.ok) {
+            console.error("Failed to set up video fields")
+            // Don't set error yet, try direct approach
+          }
+        } catch (setupError) {
+          console.error("Error calling create-video-fields API:", setupError)
+          // Continue with direct approach
         }
 
-        // Then fetch the current video
-        const response = await fetch("/api/video")
+        // Direct approach to get settings
+        try {
+          const { data, error } = await supabase
+            .from("settings")
+            .select("video_url, video_title")
+            .eq("id", "global")
+            .single()
 
-        if (response.ok) {
-          const data = await response.json()
-          if (data.videoUrl) {
-            setCurrentVideo({
-              url: data.videoUrl,
-              title: data.title,
-            })
+          if (!error && data) {
+            if (data.video_url) {
+              setCurrentVideo({
+                url: data.video_url,
+                title: data.video_title || "Event Video",
+              })
+            }
           }
+        } catch (directError) {
+          console.error("Error with direct settings fetch:", directError)
+          setSetupError("Could not retrieve current video information. Please try refreshing the page.")
         }
       } catch (error) {
         console.error("Error setting up video functionality:", error)
+        setSetupError("Failed to set up video functionality. Please try refreshing the page.")
       } finally {
         setLoadingCurrentVideo(false)
       }
@@ -218,6 +236,19 @@ export default function VideoUpload() {
           <div className="flex items-center justify-center p-4">
             <Loader2 className="w-6 h-6 text-blue-500 animate-spin mr-2" />
             <p>Checking current video status...</p>
+          </div>
+        ) : setupError ? (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
+            <div className="flex items-start">
+              <AlertTriangle className="h-5 w-5 text-red-500 mr-2 mt-0.5" />
+              <div>
+                <h3 className="text-sm font-medium text-red-800">Error</h3>
+                <p className="text-sm text-red-700 mt-1">{setupError}</p>
+                <Button variant="outline" size="sm" className="mt-2" onClick={() => window.location.reload()}>
+                  Refresh Page
+                </Button>
+              </div>
+            </div>
           </div>
         ) : (
           <div className="space-y-6">

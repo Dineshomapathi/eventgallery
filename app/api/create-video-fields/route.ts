@@ -3,44 +3,63 @@ import { supabase } from "@/lib/supabase"
 
 export async function POST() {
   try {
-    // SQL to add video fields to the settings table if they don't exist
-    const addVideoFieldsSQL = `
-      DO $$
-      BEGIN
-        -- Check if video_url column exists
-        IF NOT EXISTS (
-          SELECT 1 FROM information_schema.columns 
-          WHERE table_name = 'settings' AND column_name = 'video_url'
-        ) THEN
-          ALTER TABLE settings ADD COLUMN video_url TEXT;
-        END IF;
+    // Check if the settings table exists
+    const { data: tableExists, error: tableCheckError } = await supabase.from("settings").select("id").limit(1).single()
 
-        -- Check if video_path column exists
-        IF NOT EXISTS (
-          SELECT 1 FROM information_schema.columns 
-          WHERE table_name = 'settings' AND column_name = 'video_path'
-        ) THEN
-          ALTER TABLE settings ADD COLUMN video_path TEXT;
-        END IF;
-
-        -- Check if video_title column exists
-        IF NOT EXISTS (
-          SELECT 1 FROM information_schema.columns 
-          WHERE table_name = 'settings' AND column_name = 'video_title'
-        ) THEN
-          ALTER TABLE settings ADD COLUMN video_title TEXT;
-        END IF;
-      END $$;
-    `
-
-    // Execute the SQL
-    const { error } = await supabase.rpc("exec_sql", { sql: addVideoFieldsSQL })
-
-    if (error) {
-      console.error("Error adding video fields to settings table:", error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    if (tableCheckError && !tableCheckError.message.includes("No rows found")) {
+      console.error("Error checking settings table:", tableCheckError)
+      return NextResponse.json({ error: "Failed to check settings table" }, { status: 500 })
     }
 
+    // If the table doesn't exist, create it with all required columns
+    if (!tableExists) {
+      const { error: createTableError } = await supabase.rpc("create_settings_table")
+
+      if (createTableError) {
+        console.error("Error creating settings table:", createTableError)
+        return NextResponse.json({ error: "Failed to create settings table" }, { status: 500 })
+      }
+
+      console.log("Settings table created successfully")
+    }
+
+    // Add video_url column if it doesn't exist
+    const { error: addVideoUrlError } = await supabase.rpc("add_column_if_not_exists", {
+      table_name: "settings",
+      column_name: "video_url",
+      column_type: "text",
+    })
+
+    if (addVideoUrlError) {
+      console.error("Error adding video_url column:", addVideoUrlError)
+      // Continue anyway, as the column might already exist
+    }
+
+    // Add video_path column if it doesn't exist
+    const { error: addVideoPathError } = await supabase.rpc("add_column_if_not_exists", {
+      table_name: "settings",
+      column_name: "video_path",
+      column_type: "text",
+    })
+
+    if (addVideoPathError) {
+      console.error("Error adding video_path column:", addVideoPathError)
+      // Continue anyway, as the column might already exist
+    }
+
+    // Add video_title column if it doesn't exist
+    const { error: addVideoTitleError } = await supabase.rpc("add_column_if_not_exists", {
+      table_name: "settings",
+      column_name: "video_title",
+      column_type: "text",
+    })
+
+    if (addVideoTitleError) {
+      console.error("Error adding video_title column:", addVideoTitleError)
+      // Continue anyway, as the column might already exist
+    }
+
+    // If we got here, either the columns were added or they already existed
     return NextResponse.json({ success: true, message: "Video fields added to settings table successfully" })
   } catch (error) {
     console.error("Error in create-video-fields endpoint:", error)

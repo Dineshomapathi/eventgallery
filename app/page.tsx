@@ -309,7 +309,7 @@ export default function EventGallery() {
                     23rd ROPTC Event Video Highlight
                   </h2>
                   <video
-                    src="https://yolzzqcxvizsrfpnpmqh.supabase.co/storage/v1/object/public/videos//ROPTC%20Video%20Highlight%20VFA.mp4"
+                    src="https://yolzzqcxvizsrfpnpmqh.supabase.co/storage/v1/object/public/videos//20250519%20ROPTC%20Video%20Highlight%20Revised%20VFA.mp4"
                     controls
                     poster="/images/video-thumbnail.png"
                     preload="metadata"
